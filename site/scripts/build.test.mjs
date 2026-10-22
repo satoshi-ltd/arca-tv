@@ -20,8 +20,10 @@ test("build writes the page, styles, script, assets, screens and headers", async
   const html = await readFile(path.join(dist, "index.html"), "utf8");
   assert.match(html, /<link rel="canonical" href="https:\/\/tv\.example\.com\/">/);
   assert.doesNotMatch(html, /\{\{/);
-  assert.match(html, /<meta property="og:image" content="https:\/\/tv\.example\.com\/screens\/photos\.jpg">/);
-  assert.match(html, /<meta name="twitter:image" content="https:\/\/tv\.example\.com\/screens\/photos\.jpg">/);
+  assert.match(html, /<meta property="og:image" content="https:\/\/tv\.example\.com\/screens\/home\.jpg">/);
+  assert.match(html, /<meta name="twitter:image" content="https:\/\/tv\.example\.com\/screens\/home\.jpg">/);
+  assert.match(html, /<meta property="og:title" content="arca TV · Your home, on the big screen\.">/);
+  assert.match(html, /<meta property="og:description" content="A calm home screen for Google TV and Android TV\. Connect arca and your photos, videos and music come with it\.">/);
   assert.deepEqual((await readdir(path.join(dist, "screens"))).sort(), [...SCREENS].sort());
   for (const file of ["styles.css", "hero.css", "site.js", "_headers", "assets/Geist.ttf", "assets/OFL-Geist.txt", "assets/mark.svg"])
     await readFile(path.join(dist, file));

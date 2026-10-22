@@ -176,7 +176,7 @@ The hub credential stays in the app’s private storage. Jellyfin and domo keys 
 
 ## Development
 
-Plain Java at Java 8 language level, using only the Android SDK: minSdk 28, targetSdk 33. `build.sh` builds with aapt2, javac, d8 and apksigner, without Gradle. Screens are drawn on Canvas with shared glass, backdrop, icon and header components. The current APK is under 1 MB.
+Plain Java at Java 8 language level: minSdk 28, targetSdk 33. The only library is AndroidX Media3 (ExoPlayer) for video, pinned by SHA-256 in `libs.txt` and downloaded on the first build, so that build needs internet. `build.sh` builds with aapt2, javac, R8 and apksigner, without Gradle. Screens are drawn on Canvas with shared glass, backdrop, icon and header components. The current APK is about 1.4 MB.
 
 Build with `./build.sh`; success ends with `Built ArcaTV.apk`. There is no Java test harness; functional changes are checked on a real TV. See [AGENTS.md](AGENTS.md) for implementation and device-testing rules.
 
@@ -188,7 +188,8 @@ app/                    Android app: sources, resources, assets
 thumbnails/             App logos on glass tiles: JSON, SVG sources, tools and tests
 docs/screens/           Product screenshots with sample content
 site/                   The website: one static page, its build script and tests
-build.sh                aapt2, javac, d8 and apksigner; no Gradle
+build.sh                aapt2, javac, R8 and apksigner; no Gradle
+libs.txt                Pinned libraries (Media3 and its dependencies)
 config.example.yaml
 ```
 

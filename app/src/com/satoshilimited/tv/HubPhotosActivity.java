@@ -3,18 +3,13 @@ package com.satoshilimited.tv;
 import android.app.Activity;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import android.widget.VideoView;
-
-import java.util.HashMap;
-import java.util.Map;
-
 
 public class HubPhotosActivity extends Activity {
     private PhotosView view;
@@ -28,9 +23,9 @@ public class HubPhotosActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF000000);
         if (view.browse) {
-            view.video = new VideoView(this);
-            root.addView(view.video, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-            view.video.setVisibility(View.GONE);
+            view.surface = new SurfaceView(this);
+            root.addView(view.surface, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            view.surface.setVisibility(View.GONE);
         }
         root.addView(view, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
@@ -44,6 +39,11 @@ public class HubPhotosActivity extends Activity {
     @Override protected void onPause() {
         view.pause();
         super.onPause();
+    }
+
+    @Override protected void onStop() {
+        view.dropVideo();
+        super.onStop();
     }
 
     @Override protected void onDestroy() {
@@ -62,7 +62,8 @@ public class HubPhotosActivity extends Activity {
         private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG), fillBar = new Paint(Paint.ANTI_ALIAS_FLAG);
         private boolean running, okDown, backDown;
         private final boolean browse;
-        private VideoView video;
+        private SurfaceView surface;
+        private HubVideo video;
         private String videoHash = "";
         private boolean videoReady;
 
@@ -87,41 +88,63 @@ public class HubPhotosActivity extends Activity {
             if (video != null) video.pause();
         }
 
+        void dropVideo() {
+            if (video != null) video.release();
+            video = null;
+            videoHash = "";
+            videoReady = false;
+            if (surface != null) surface.setVisibility(GONE);
+        }
+
         void release() {
-            if (video != null) video.stopPlayback();
+            dropVideo();
             show.close();
         }
 
+        private void fit(float ratio) {
+            View parent = (View) surface.getParent();
+            int pw = parent.getWidth(), ph = parent.getHeight();
+            if (pw == 0 || ph == 0) return;
+            int w = pw, h = Math.round(pw / ratio);
+            if (h > ph) {
+                h = ph;
+                w = Math.round(ph * ratio);
+            }
+            surface.setLayoutParams(new FrameLayout.LayoutParams(w, h, Gravity.CENTER));
+        }
+
         private void syncVideo() {
-            if (!browse || video == null) return;
+            if (!browse || surface == null) return;
             boolean isVideo = show.ready() && show.currentVideo();
             String hash = isVideo ? show.currentHash() : "";
             if (hash.equals(videoHash)) return;
             videoHash = hash;
             videoReady = false;
-            if (hash.isEmpty()) {
-                video.stopPlayback();
-                video.setVisibility(GONE);
-                return;
-            }
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Authorization", ArcaHub.authorization(getContext()));
-            video.setVideoURI(Uri.parse(ArcaHub.url(getContext()) + "/v1/blobs/" + hash), headers);
-            video.setOnPreparedListener(MediaPlayer::start);
-            video.setOnCompletionListener(mp -> show.step(1));
-            video.setOnInfoListener((mp, what, extra) -> {
-                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
+            if (video == null && !hash.isEmpty()) video = new HubVideo(getContext(), surface, new HubVideo.Listener() {
+                @Override public void onRatio(float ratio) {
+                    fit(ratio);
+                }
+
+                @Override public void onFirstFrame() {
                     videoReady = true;
                     invalidate();
                 }
-                return false;
+
+                @Override public void onEnded() {
+                    show.step(1);
+                }
+
+                @Override public void onFailed() {
+                    show.step(1);
+                }
             });
-            video.setOnErrorListener((mp, what, extra) -> {
-                AppLog.w("arca photo video playback error " + what + "/" + extra);
-                show.step(1);
-                return true;
-            });
-            video.setVisibility(VISIBLE);
+            if (hash.isEmpty()) {
+                if (video != null) video.stop();
+                surface.setVisibility(GONE);
+                return;
+            }
+            video.play(ArcaHub.url(getContext()) + "/v1/blobs/" + hash);
+            surface.setVisibility(VISIBLE);
         }
 
         @Override protected void onDraw(Canvas c) {
@@ -131,9 +154,8 @@ public class HubPhotosActivity extends Activity {
             boolean videoActive = !videoHash.isEmpty();
             if (!videoActive || !videoReady) show.draw(c, width, height, false, true);
             if (videoActive && videoReady && video != null) {
-                int duration = video.getDuration();
-                if (duration > 0) {
-                    float p = Math.min(1f, video.getCurrentPosition() / (float) duration);
+                float p = video.progress();
+                if (p >= 0f) {
                     fillBar.setColor(0x33FFFFFF);
                     c.drawRect(0, height - 4 * k, width, height, fillBar);
                     fillBar.setColor(0xFFF2F2F2);
@@ -165,8 +187,7 @@ public class HubPhotosActivity extends Activity {
                     } else {
                         if (okDown && !e.isCanceled()) {
                             if (browse && !videoHash.isEmpty() && video != null) {
-                                if (video.isPlaying()) video.pause();
-                                else video.start();
+                                video.toggle();
                             } else show.togglePause();
                         }
                         okDown = false;

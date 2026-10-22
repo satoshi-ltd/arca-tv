@@ -20,7 +20,8 @@ maintainer's global instructions and apply here.
 | Website | `cd site && npm test && npm run build`, preview with `python3 -m http.server --directory site/dist 4179` |
 
 Environment: JDK 17 (`JAVA_HOME`), Android SDK with build-tools 34 and platform android-34 (`ANDROID_HOME`), `adb`,
-`rsvg-convert` for thumbnails. Never run two builds at the same time: `build.sh` deletes `out/`.
+`rsvg-convert` for thumbnails, and internet access for the first build (it downloads `libs.txt`). Never run two
+builds at the same time: `build.sh` deletes `out/`.
 
 There is no Java test harness. A functional change is checked on a real TV (screenshots through `adb`), and a change to
 `thumbnails/` ships with a test in `thumbnails/tests`.
@@ -85,7 +86,14 @@ Troubleshooting:
 
 ## The code
 
-- Java 8 language level, minSdk 28, targetSdk 33. No libraries: only the Android SDK. Fonts are `Geist` from assets.
+- Java 8 language level, minSdk 28, targetSdk 33. Fonts are `Geist` from assets.
+- The only library is AndroidX Media3 ExoPlayer 1.5.1, the player for all video (today `HubVideo`, the photo viewer's).
+  `libs.txt` pins it and its dependencies (Guava, AndroidX collection, exifinterface) by URL and SHA-256; `build.sh`
+  downloads them into the git-ignored `libs/` on the first build, refuses any file whose hash differs, and shrinks the
+  app and the libraries with R8 (`app/r8.pro`, the rules aapt2 writes for the manifest, each AAR's own `proguard.txt`;
+  no obfuscation, and `out/mapping.txt` retraces inlined frames). Create the player only when a video plays, never on
+  the home screen's start, and release it in `onStop` so another app gets the decoder and the memory back. Add nothing
+  else without asking.
 - Two processes: the UI runs in `:home`; `HomeMode` and `ModeJob` switch the home screen from the main process.
   `Watchdog` returns to the stock home screen after three crashes in five minutes. Keep the way back working.
 - All screens are `View`s drawn by hand on one `Canvas` at 60 fps: no allocations in `onDraw`, no work on the UI thread,
@@ -123,7 +131,9 @@ Troubleshooting:
   and `next`. `&month=YYYY-MM` seeks a month, `&after=<cursor>` continues. Previews:
   `GET /v1/gallery/preview?volume&path&hash&size=thumb|medium|large` returns `{"data":"data:image/jpeg;base64,..."}`.
   Photos and videos share one chronology; there is no location. Videos play inline in the viewer, streamed from
-  `GET /v1/blobs/<hash>` (the same content-addressed, Bearer-and-Range route music uses) through a `VideoView`.
+  `GET /v1/blobs/<hash>` (the same content-addressed, Bearer-and-Range route music uses) through `HubVideo` (ExoPlayer,
+  a read-ahead buffer capped at 32 MB because it lives in the launcher's heap, the surface sized to the video's own
+  aspect ratio so portrait clips are letterboxed).
 - Music: `GET /v1/music/library?volume=ID` returns tracks (tags, `cover` key) and `playlists` (`.m3u8`, `entries` are
   folder-relative paths). Covers: `GET /v1/music/cover?volume&key&size=small|large` returns `{data}`. Audio streams
   from `GET /v1/blobs/<hash>` with a Bearer header and Range.

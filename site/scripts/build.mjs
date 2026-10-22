@@ -47,7 +47,7 @@ export function render(template, config = {}) {
       ? `<link rel="canonical" href="${escape(publicUrl(config.siteUrl))}/">`
       : "",
     SOCIAL_IMAGE: config.siteUrl
-      ? `<meta property="og:image" content="${escape(publicUrl(config.siteUrl))}/screens/photos.jpg">\n<meta property="og:image:alt" content="arca Photos timeline on TV">\n<meta name="twitter:image" content="${escape(publicUrl(config.siteUrl))}/screens/photos.jpg">`
+      ? `<meta property="og:image" content="${escape(publicUrl(config.siteUrl))}/screens/home.jpg">\n<meta property="og:image:alt" content="arca TV home screen on a Google TV">\n<meta name="twitter:image" content="${escape(publicUrl(config.siteUrl))}/screens/home.jpg">`
       : "",
   };
   return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, key) => {
