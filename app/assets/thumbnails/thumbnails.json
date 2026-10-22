@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "apps": [
+    {
+      "name": "Jellyfin",
+      "packages": [
+        "org.jellyfin.androidtv"
+      ],
+      "brand": "#7b5cd9",
+      "logo": "jellyfin.svg"
+    },
+    {
+      "name": "YouTube",
+      "packages": [
+        "com.google.android.youtube.tv"
+      ],
+      "brand": "#ff0033",
+      "logo": "youtube.svg"
+    },
+    {
+      "name": "Apple TV",
+      "packages": [
+        "com.apple.atve.androidtv.appletv"
+      ],
+      "brand": "#b8bcc6",
+      "logo": "appletv.svg"
+    },
+    {
+      "name": "Netflix",
+      "packages": [
+        "com.netflix.ninja"
+      ],
+      "brand": "#e50914",
+      "logo": "netflix.svg"
+    },
+    {
+      "name": "beIN SPORTS CONNECT",
+      "packages": [
+        "com.beinsports.connect.tv.apac"
+      ],
+      "brand": "#5c2d91",
+      "logo": "beins.svg"
+    },
+    {
+      "name": "SPOTV NOW",
+      "packages": [
+        "com.spotv.tvapp"
+      ],
+      "brand": "#ff0050",
+      "logo": "spotv.svg"
+    },
+    {
+      "name": "Prime Video",
+      "packages": [
+        "com.amazon.amazonvideo.livingroom"
+      ],
+      "brand": "#1a98ff",
+      "logo": "prime.svg"
+    },
+    {
+      "name": "Disney+",
+      "packages": [
+        "com.disney.disneyplus"
+      ],
+      "brand": "#3d6bff",
+      "logo": "disneyplus.svg"
+    },
+    {
+      "name": "Max",
+      "packages": [
+        "com.wbd.stream"
+      ],
+      "brand": "#7b4dff",
+      "logo": "max.svg"
+    },
+    {
+      "name": "Hulu",
+      "packages": [
+        "com.hulu.livingroomplus"
+      ],
+      "brand": "#1ce783",
+      "logo": "hulu.svg"
+    },
+    {
+      "name": "Paramount+",
+      "packages": [
+        "com.cbs.ott"
+      ],
+      "brand": "#0064ff",
+      "logo": "paramountplus.svg"
+    },
+    {
+      "name": "Peacock",
+      "packages": [
+        "com.peacocktv.peacockandroid"
+      ],
+      "brand": "#ffffff",
+      "logo": "peacock.svg"
+    },
+    {
+      "name": "Spotify",
+      "packages": [
+        "com.spotify.tv.android"
+      ],
+      "brand": "#1db954",
+      "logo": "spotify.svg"
+    },
+    {
+      "name": "Plex",
+      "packages": [
+        "com.plexapp.android"
+      ],
+      "brand": "#e5a00d",
+      "logo": "plex.svg"
+    },
+    {
+      "name": "Kodi",
+      "packages": [
+        "org.xbmc.kodi"
+      ],
+      "brand": "#17b2e7",
+      "logo": "kodi.svg"
+    },
+    {
+      "name": "Twitch",
+      "packages": [
+        "tv.twitch.android.app"
+      ],
+      "brand": "#9146ff",
+      "logo": "twitch.svg"
+    },
+    {
+      "name": "Crunchyroll",
+      "packages": [
+        "com.crunchyroll.crunchyroid"
+      ],
+      "brand": "#f47521",
+      "logo": "crunchyroll.svg"
+    },
+    {
+      "name": "Google Play",
+      "packages": [
+        "com.android.vending"
+      ],
+      "brand": "#34a853",
+      "logo": "googleplay.svg"
+    },
+    {
+      "name": "UFC",
+      "packages": [
+        "com.neulion.smartphone.ufc.android"
+      ],
+      "brand": "#d20a0a",
+      "logo": "ufc.svg"
+    },
+    {
+      "name": "DAZN",
+      "packages": [
+        "com.dazn"
+      ],
+      "brand": "#f8f8f5",
+      "logo": "dazn.svg"
+    },
+    {
+      "name": "Globoplay",
+      "packages": [
+        "com.globo.globotv"
+      ],
+      "brand": "#ff5a1f",
+      "logo": "globoplay.svg"
+    },
+    {
+      "name": "arca TV",
+      "packages": [
+        "com.satoshilimited.tv"
+      ],
+      "brand": "#7fb893",
+      "logo": "arca.svg"
+    },
+    {
+      "name": "F1 TV",
+      "packages": [
+        "com.formulaone.production"
+      ],
+      "brand": "#e10600",
+      "logo": "f1.svg"
+    },
+    {
+      "name": "MotoGP",
+      "packages": [
+        "com.dorna.officialmotogp"
+      ],
+      "brand": "#e4002b",
+      "logo": "motogp.svg"
+    },
+    {
+      "name": "arca Photos",
+      "packages": [
+        "org.arca.photos"
+      ],
+      "brand": "#7fb893",
+      "logo": "arcaphotos.svg"
+    },
+    {
+      "name": "arca Music",
+      "packages": [
+        "org.arca.music"
+      ],
+      "brand": "#7fb893",
+      "logo": "arcamusic.svg"
+    },
+    {
+      "name": "arca domo",
+      "packages": [
+        "org.arca.domo"
+      ],
+      "brand": "#7fb893",
+      "logo": "arcadomo.svg"
+    },
+    {
+      "name": "Emby",
+      "packages": [
+        "tv.emby.embyatv"
+      ],
+      "brand": "#52b54b"
+    }
+  ]
+}

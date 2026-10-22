@@ -1,0 +1,45 @@
+name: publish-site
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - docs/screens/**
+      - app/assets/fonts/**
+      - .github/workflows/publish-site.yml
+permissions:
+  contents: read
+concurrency:
+  group: arca-tv-site
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: site/.node-version
+      - name: Verify deployment configuration
+        run: |
+          for key in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN CLOUDFLARE_PAGES_PROJECT_NAME SITE_URL; do
+            test -n "${!key}" || { echo "::error::Missing $key"; exit 1; }
+          done
+      - run: npm install --no-save --package-lock=false --ignore-scripts wrangler@4
+      - run: npm test
+      - run: npm run build
+      - name: Deploy to Cloudflare Pages
+        run: npx --no-install wrangler pages deploy dist --project-name="$CLOUDFLARE_PAGES_PROJECT_NAME" --branch=main

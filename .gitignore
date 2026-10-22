@@ -1,0 +1,21 @@
+# Your settings and signing key stay on your machine
+config.yaml
+config.properties
+config.properties.bak
+*.keystore
+*.idsig
+
+# Build output
+out/
+*.apk
+*.ipk
+*.wgt
+__pycache__/
+
+# macOS
+.DS_Store
+
+# Jellyfin API key
+.jellyfin-token
+site/dist/
+site/node_modules/
