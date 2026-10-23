@@ -32,9 +32,12 @@ def main():
     OUT.mkdir(parents=True)
     data = json.loads((ROOT / "thumbnails.json").read_text())
     shutil.copy(ROOT / "thumbnails.json", OUT / "thumbnails.json")
-    for app in data["apps"]:
-        if app.get("logo"):
-            render(app["logo"])
+    for logo in logos(data):
+        render(logo)
+
+
+def logos(data):
+    return [entry["logo"] for entry in data["apps"] + data.get("devices", []) if entry.get("logo")]
 
 
 if __name__ == "__main__":

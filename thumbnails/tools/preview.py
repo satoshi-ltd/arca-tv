@@ -53,7 +53,7 @@ def cell(app):
 
 def build():
     data = json.loads((ROOT / "thumbnails.json").read_text())
-    return PAGE.replace("@@CELLS@@", "".join(cell(a) for a in data["apps"]))
+    return PAGE.replace("@@CELLS@@", "".join(cell(a) for a in data["apps"] + data.get("devices", [])))
 
 
 if __name__ == "__main__":

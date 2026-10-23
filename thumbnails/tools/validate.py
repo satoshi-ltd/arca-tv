@@ -45,18 +45,34 @@ def errors(root=ROOT):
             if package in seen:
                 found.append(f"{name}: duplicate package {package}")
             seen.add(package)
-        logo = app.get("logo")
-        if logo:
-            path = root / "logos" / logo
-            if not path.is_file():
-                found.append(f"{name}: missing logos/{logo}")
-            elif FORBIDDEN.search(path.read_text()):
-                found.append(f"{name}: logos/{logo} contains forbidden content")
-            elif path.stat().st_size > 60_000:
-                found.append(f"{name}: logos/{logo} is larger than 60 KB")
-            elif blends_into_tint(path.read_text(), app.get("brand", "")):
-                found.append(f"{name}: logos/{logo} is one colour close to its brand tint; make it white")
+        found.extend(logo_errors(root, name, app))
+    for device in data.get("devices", []):
+        name = device.get("name") or "?"
+        if not HEX.match(device.get("brand", "")):
+            found.append(f"{name}: brand must be #rrggbb")
+        words = device.get("match") or []
+        if not words:
+            found.append(f"{name}: no match words")
+        elif any(word != word.lower() for word in words):
+            found.append(f"{name}: match words must be lower case")
+        found.extend(logo_errors(root, name, device))
     return found
+
+
+def logo_errors(root, name, entry):
+    logo = entry.get("logo")
+    if not logo:
+        return []
+    path = root / "logos" / logo
+    if not path.is_file():
+        return [f"{name}: missing logos/{logo}"]
+    if FORBIDDEN.search(path.read_text()):
+        return [f"{name}: logos/{logo} contains forbidden content"]
+    if path.stat().st_size > 60_000:
+        return [f"{name}: logos/{logo} is larger than 60 KB"]
+    if blends_into_tint(path.read_text(), entry.get("brand", "")):
+        return [f"{name}: logos/{logo} is one colour close to its brand tint; make it white"]
+    return []
 
 
 if __name__ == "__main__":

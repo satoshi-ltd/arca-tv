@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 final class Thumbs {
@@ -28,6 +30,7 @@ final class Thumbs {
     }
 
     private static final Map<String, Entry> BY_PACKAGE = new HashMap<>();
+    private static final Map<String, Entry> BY_WORD = new LinkedHashMap<>();
     private static AssetManager assets;
     private static boolean ready;
 
@@ -36,24 +39,49 @@ final class Thumbs {
         ready = true;
         assets = c.getApplicationContext().getAssets();
         try {
-            JSONArray apps = new JSONObject(text("thumbnails/thumbnails.json")).getJSONArray("apps");
+            JSONObject root = new JSONObject(text("thumbnails/thumbnails.json"));
+            JSONArray apps = root.getJSONArray("apps");
             for (int i = 0; i < apps.length(); i++) {
                 JSONObject o = apps.getJSONObject(i);
-                Entry e = new Entry();
-                e.name = o.getString("name");
-                e.brand = Color.parseColor(o.getString("brand"));
-                String logo = o.optString("logo", "");
-                e.logoFile = logo.isEmpty() ? null : "thumbnails/" + logo.replaceAll("\\.svg$", ".png");
+                Entry e = parse(o);
                 JSONArray packages = o.getJSONArray("packages");
                 for (int p = 0; p < packages.length(); p++) BY_PACKAGE.put(packages.getString(p), e);
+            }
+            JSONArray devices = root.optJSONArray("devices");
+            for (int i = 0; devices != null && i < devices.length(); i++) {
+                JSONObject o = devices.getJSONObject(i);
+                Entry e = parse(o);
+                JSONArray words = o.getJSONArray("match");
+                for (int w = 0; w < words.length(); w++) BY_WORD.put(words.getString(w), e);
             }
         } catch (Exception ex) {
             AppLog.w("thumbnails: " + ex.getMessage());
         }
     }
 
+    private static Entry parse(JSONObject o) throws Exception {
+        Entry e = new Entry();
+        e.name = o.getString("name");
+        e.brand = Color.parseColor(o.getString("brand"));
+        String logo = o.optString("logo", "");
+        e.logoFile = logo.isEmpty() ? null : "thumbnails/" + logo.replaceAll("\\.svg$", ".png");
+        return e;
+    }
+
     static synchronized Entry entry(String pkg) {
-        Entry e = pkg == null ? null : BY_PACKAGE.get(pkg);
+        return loaded(pkg == null ? null : BY_PACKAGE.get(pkg));
+    }
+
+    static synchronized Entry device(String name) {
+        if (name == null) return null;
+        String n = name.toLowerCase(Locale.ROOT);
+        for (Map.Entry<String, Entry> word : BY_WORD.entrySet()) {
+            if (n.contains(word.getKey())) return loaded(word.getValue());
+        }
+        return null;
+    }
+
+    private static Entry loaded(Entry e) {
         if (e != null && !e.loaded) {
             e.loaded = true;
             if (e.logoFile != null) {

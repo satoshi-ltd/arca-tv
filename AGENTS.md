@@ -164,6 +164,9 @@ Troubleshooting:
   called "arca TV" by default.
 - Quick settings: "This TV" heading over Picture, Sound, Network, All settings, About, then arca TV; inputs on the
   right. One name per thing, never "settings" twice on the same panel.
+- Shelf: an HDMI input with a signal takes the last app slots (before All apps, so the apps never shift) and, when it
+  newly connects, the focus; Down from the cards also lands on it. When the signal goes, the app comes back. A console on HDMI (`devices` in `thumbnails.json`, matched by
+  words in the input's name) is drawn like an app tile, with its brand tint and logo; other devices keep icon and name.
 - Music has three tabs: Recent (albums), Artists (split view: artist list and the albums of the focused artist),
   Playlists (cover grid). "Shuffle all" (whole library, shuffled) is a pill at the end of the tab row; the
   first tile of an artist's album grid is "Shuffle" (that artist's tracks, shuffled). Artist to album to tracks; no

@@ -224,5 +224,36 @@
       ],
       "brand": "#52b54b"
     }
+  ],
+  "devices": [
+    {
+      "name": "PlayStation",
+      "match": [
+        "playstation",
+        "ps5",
+        "ps4",
+        "ps3"
+      ],
+      "brand": "#0070cc",
+      "logo": "playstation.svg"
+    },
+    {
+      "name": "Xbox",
+      "match": [
+        "xbox"
+      ],
+      "brand": "#107c10",
+      "logo": "xbox.svg"
+    },
+    {
+      "name": "Nintendo",
+      "match": [
+        "nintendo",
+        "switch",
+        "wii u"
+      ],
+      "brand": "#e60012",
+      "logo": "nintendo.svg"
+    }
   ]
 }

@@ -71,6 +71,7 @@ final class HomeApps {
         float logoScale = 1; // size tweak by eye (compact logos need more)
         int brand;
         boolean connected = true;
+        Thumbs.Entry device;
     }
 
     /**
@@ -351,6 +352,7 @@ final class HomeApps {
             it.inputId = info.getId();
             it.number = String.valueOf(number);
             it.connected = state == TvInputManager.INPUT_STATE_CONNECTED;
+            if (it.connected || custom != null) it.device = Thumbs.device(label);
             out.add(it);
         }
         Collections.sort(out, (a, b) -> a.number.compareTo(b.number));

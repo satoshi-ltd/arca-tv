@@ -18,6 +18,17 @@ Logos are drawn inside a box of 58% of the tile's width by 32% of its height, ke
 
 `brand` is the vivid colour of the brand, never its dark background.
 
+## Add an HDMI device
+
+Devices on HDMI (game consoles today) go in `devices` instead of `apps`, matched by lower-case words in the name the
+input shows (the name the device reports over HDMI-CEC, or the one given in the TV's settings), first match wins:
+
+```json
+{"name": "PlayStation", "match": ["playstation", "ps5", "ps4", "ps3"], "brand": "#0070cc", "logo": "playstation.svg"}
+```
+
+A matched input shows that tile on the shelf; any other input keeps its icon and name.
+
 ## Trademarks
 
 Logos are trademarks of their owners and are included only to identify their apps.

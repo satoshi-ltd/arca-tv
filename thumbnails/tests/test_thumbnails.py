@@ -59,3 +59,20 @@ def test_rejects_a_one_colour_logo_in_its_brand_colour(tmp_path):
     assert validate.errors(root) == ["Netflix: logos/netflix.svg is one colour close to its brand tint; make it white"]
     assert not validate.blends_into_tint('<path fill="#ff0033"/><path fill="#ffffff"/>', "#ff0033")
     assert not validate.blends_into_tint('<path fill="#fafafa"/>', "#f8f8f5")
+
+
+def test_rejects_a_device_without_match_words(tmp_path):
+    root = copy(tmp_path)
+    data = json.loads((root / "thumbnails.json").read_text())
+    data["devices"].append({"name": "Console", "match": [], "brand": "#123456", "logo": "playstation.svg"})
+    data["devices"].append({"name": "Loud", "match": ["Loud"], "brand": "#123456"})
+    (root / "thumbnails.json").write_text(json.dumps(data))
+    assert validate.errors(root) == ["Console: no match words", "Loud: match words must be lower case"]
+
+
+def test_render_includes_device_logos():
+    import render
+    data = json.loads((validate.ROOT / "thumbnails.json").read_text())
+    logos = render.logos(data)
+    assert {"playstation.svg", "xbox.svg", "nintendo.svg"} <= set(logos)
+    assert "netflix.svg" in logos

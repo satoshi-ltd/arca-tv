@@ -33,7 +33,9 @@ import org.json.JSONObject;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -104,6 +106,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     private int ringLayer = -1;
 
     private List<HomeApps.Item> rail = new ArrayList<>();
+    private Set<String> connectedInputs;
     private List<HomeApps.Item> others = new ArrayList<>();
     private final List<Row> left = new ArrayList<>(), right = new ArrayList<>();
     private Spring[] railScale = new Spring[0];
@@ -335,11 +338,24 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         List<HomeApps.Item> next = new ArrayList<>(apps.subList(0, Math.min(apps.size(), HomeApps.MAX_SHELF - devices.size())));
         next.addAll(devices);
         next.add(HomeApps.action(HomeApps.ALL_APPS, "all", "All apps", "apps"));
+        int arrived = -1;
+        Set<String> now = new HashSet<>();
+        for (HomeApps.Item it : devices) {
+            now.add(it.inputId);
+            if (connectedInputs != null && !connectedInputs.contains(it.inputId)) arrived = next.indexOf(it);
+        }
+        connectedInputs = now;
         rail = next;
         railScale = new Spring[next.size()];
         for (int i = 0; i < railScale.length; i++) railScale[i] = new Spring(0.26f, 0.85f, 0);
         railIndex = Math.min(railIndex, Math.max(0, rail.size() - 1));
         layout();
+        if (arrived >= 0 && !panelOpen && !sheetOpen) {
+            zone = Z_RAIL;
+            railIndex = arrived;
+            moved = true;
+            focusChanged();
+        }
     }
 
     private void layout() {
@@ -465,9 +481,9 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             r.on = it.connected;
             r.focusable = it.connected;
             boolean named = it.connected && it.label != null && !it.label.startsWith("HDMI");
-            r.title = named ? it.label + " · HDMI " + it.number : "HDMI " + it.number;
+            r.title = named ? it.label : "HDMI " + it.number;
             r.symbol = it.connected && it.symbol != null ? it.symbol : "hdmi";
-            r.status = it.connected ? "Connected" : "No signal";
+            r.status = "";
             right.add(r);
         }
         layoutPanel();
@@ -689,6 +705,10 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
 
     private void showBrand(HomeApps.Item it, float xFraction) {
+        if (it.kind == HomeApps.INPUT && it.device != null) {
+            backdrop.showWash(it.key + "|" + it.device.name + "|" + Math.round(xFraction * 12), it.device.brand, xFraction);
+            return;
+        }
         String id = it.pkg != null ? it.pkg : it.label;
         if ((it.kind != HomeApps.APP && it.kind != HomeApps.SETTINGS) || id == null) {
             backdrop.clear();
@@ -857,7 +877,10 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
 
     private void drawTile(Canvas c, HomeApps.Item it, RectF r) {
         float radius = TILE_RADIUS * k;
-        if (it.kind == HomeApps.INPUT) {
+        if (it.kind == HomeApps.INPUT && it.device != null && it.device.logo != null) {
+            drawGlassTile(c, r, it.device.brand);
+            drawFittedLogo(c, it.device, r);
+        } else if (it.kind == HomeApps.INPUT) {
             fill.setColor(DEVICE);
             c.drawRoundRect(r, radius, radius, fill);
             Icons.draw(getContext(), c, Icons.res(it.symbol == null ? "hdmi" : it.symbol), r.centerX(), r.top + r.height() * 0.3f, r.width() * 0.2f, DEVICE_INK);
@@ -1082,7 +1105,8 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
                 if (dx != 0) cardIndex = Math.max(0, Math.min(cardCount() - 1, cardIndex + dx));
                 if (dy > 0) {
                     zone = Z_RAIL;
-                    railIndex = nearestRail(cardRects[cardIndex].centerX());
+                    int input = firstInput();
+                    railIndex = input >= 0 ? input : nearestRail(cardRects[cardIndex].centerX());
                 } else if (dy < 0 && weatherFocusable()) {
                     zone = Z_WEATHER;
                 }
@@ -1113,6 +1137,11 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             click.move();
             focusChanged();
         }
+    }
+
+    private int firstInput() {
+        for (int i = 0; i < rail.size(); i++) if (rail.get(i).kind == HomeApps.INPUT) return i;
+        return -1;
     }
 
     private int nearestRail(float x) {
