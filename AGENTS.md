@@ -31,8 +31,8 @@ There is no Java test harness. A functional change is checked on a real TV (scre
 When a user asks to install arca TV on their TV (README "With an AI assistant"), follow this. Ask only for what the
 request is missing, and ask before installing anything on their computer.
 
-1. **Details.** Take the TV's IP address and the city from the request. Optional: Jellyfin address, arca domo
-   address. Keys and tokens (`jellyfin.token`, `domo.token`) are never typed into the chat: leave the value empty in
+1. **Details.** Take the TV's IP address and the city from the request. Optional: the arca domo
+   address. Keys and tokens (`domo.token`) are never typed into the chat: leave the value empty in
    `config.yaml` and tell the user to paste the value there themselves.
 2. **Tools.** Look for what is already there before installing: a JDK 17+ (`java -version`, `/usr/libexec/java_home`,
    or Android Studio's `"/Applications/Android Studio.app/Contents/jbr/Contents/Home"` as `JAVA_HOME`), the Android SDK
@@ -70,18 +70,20 @@ Troubleshooting:
 
 ## Environments and secrets
 
-- `config.yaml` (git-ignored) holds `city`, `jellyfin.url`, `jellyfin.token`, `domo.url` and `domo.token`; `build.sh`
+- `config.yaml` (git-ignored) holds `city`, `domo.url` and `domo.token`; `build.sh`
   reads it with a small awk parser (one level of sections, `key: "value"`, `#` comments) and moves an older
-  `config.properties` into it. Never print, log, commit or paste the values. Like the Jellyfin key, the domo key is
+  `config.properties` into it. Never print, log, commit or paste the values. The domo key is
   compiled into the APK. `config.example.yaml` lists the keys.
 - `*.keystore`, `*.idsig`, `*.apk` are git-ignored. Keep the keystore: updates must be signed with the same key.
 - The hub pairing token lives in the app's private `arca-hub` preferences. Never copy it out.
+- The Jellyfin sign-in (Quick Connect token, user and server address) lives in the app's private `settings` preferences, never in the APK
+  or `config.yaml`. Never print it.
 - No personal data in the repository: no real IP addresses, hub or TV names, library contents, photos or covers.
   Use placeholders such as `<TV_IP>` in docs.
 - The TV is real hardware. Do not change its system settings (picture, sound, network, screen timeout) except through
   the app, and restore anything you change while testing.
-- The website deploys from `.github/workflows/publish-site.yml` on pushes to `main` that touch `site/`, `docs/screens/`
-  or the font, or by manual dispatch. It needs the secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (Pages
+- The website deploys from `.github/workflows/publish-site.yml` on every push to `main`, or by manual
+  dispatch. It needs the secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (Pages
   Edit) and the variables `CLOUDFLARE_PAGES_PROJECT_NAME` and `SITE_URL`; a missing one stops the run.
 
 ## The code
@@ -94,7 +96,18 @@ Troubleshooting:
   no obfuscation, and `out/mapping.txt` retraces inlined frames). Create the player only when a video plays, never on
   the home screen's start, and release it in `onStop` so another app gets the decoder and the memory back. Add nothing
   else without asking.
-- Two processes: the UI runs in `:home`; `HomeMode` and `ModeJob` switch the home screen from the main process.
+- The app icon and the TV banner (`arca_icon.png`, `arca_banner.png` in `res/drawable-nodpi`) are muted grey (tile #444444,
+  arch #f2f2f2, door #bfbfbf), never green. Launchers keep icons by package and resource name: a new look needs new names.
+- With the arca screensaver on it is the only one: `HomeMode.ensureSaver` makes it the selected and the fallback dream and sets
+  `screensaver_enabled` from the Screensaver row, and the dream services of system apps (`systemDreams`) are turned off, never those
+  of third-party apps. *Original* restores the recorded values.
+- Jellyfin (Continue watching): `Settings → Continue watching` opens `JellyfinActivity`. `JellyfinLink` finds the server the way the
+  hub is found, with `LanScan` (254 addresses, `GET /System/Info/Public` on 8096; Jellyfin's own UDP broadcast does not reach a server
+  in Docker): first the address used last time, then the hub's address, then the scan, and "Enter address" if nothing answers. Then
+  Quick Connect: the TV shows the 6-digit code, polls every 3 s and signs in with `AuthenticateWithQuickConnect`. Not built yet: the
+  onboarding step and signing in with a password.
+- Three processes: the UI runs in `:home`; `HomeMode` and `ModeJob` switch the home screen from the main process;
+  `HomeKeyService` runs in `:keys`, with no Watchdog, so a crash there never counts toward the revert.
   `Watchdog` returns to the stock home screen after three crashes in five minutes. Keep the way back working.
 - All screens are `View`s drawn by hand on one `Canvas` at 60 fps: no allocations in `onDraw`, no work on the UI thread,
   and always reset `fill` to an opaque colour before drawing a shader background (a leftover alpha makes it grey).
@@ -158,10 +171,11 @@ Troubleshooting:
 - Glass everywhere: fill white 10 %, border 1.5 px white 14 %, top highlight; focus = fill white 14 % plus a double ring
   (a translucent black 35 % gap, then white). The gap is translucent, not solid, so it never reads as a hard line over
   a photo or brand backdrop. Pills: inactive glass, active solid white.
-- Settings order: Home screen, TV name, Hub, Continue watching, Screensaver, Weather, Shortcuts, Version. Each row has its
+- Settings order: Home screen, Hub, Continue watching, Screensaver, Weather, Shortcuts, Colour buttons (only
+  when a remote reports the four colour keys), Version. Each row has its
   family icon and a value that says what you get (Screensaver Photos/Colours/Off, Weather the city or Off, Shortcuts
-  "4 of 5"), inside the same glass plate as Quick settings. The TV is
-  called "arca TV" by default.
+  "4 of 5"), inside the same glass plate as Quick settings. The
+  TV has no name setting: the hub gets Android's device name (`ArcaHub.deviceName`), or "arca TV" when there is none.
 - Quick settings: "This TV" heading over Picture, Sound, Network, All settings, About, then arca TV; inputs on the
   right. One name per thing, never "settings" twice on the same panel.
 - Shelf: an HDMI input with a signal takes the last app slots (before All apps, so the apps never shift) and, when it
@@ -201,7 +215,8 @@ Troubleshooting:
   holds it via cached `after` cursors; videos skipped, no repeat among the last 200), so eras mix; it can be turned
   off in Settings.
 - arca domo exists only when `domo.url` is set: otherwise no indoor reading in the weather row, the weather corner is not focusable, no
-  Devices screen and nothing in All apps. No setup screen or Settings row for it. Its screens and the focused weather
+  Devices screen and nothing in All apps. No setup screen or Settings row for it, and when it exists the weather corner is its
+  only way in (it is not in All apps). Its screens and the focused weather
   corner take the backdrop from the worst fresh reading: arca green for Excellent or Good, amber for Light or
   Moderate, red for Heavy or Severe (`ArcaDomo.washColor`); level colour on a card is only an accent on the lit step,
   always next to the word.
@@ -220,6 +235,15 @@ Troubleshooting:
 
 - Never turn off an app that saved a Wi-Fi network (`wifiOwners` in `HomeMode`): Android deletes its networks and
   *Original* cannot bring them back.
+- Never turn off Google TV's home screen while its setup app is on: the setup app's RecoveryActivity then takes the
+  Home button (a restart there factory-reset a Xiaomi). When the setup app (or the stock home) saved the Wi-Fi, arca
+  TV mode keeps both on (`keys` in the mode state) and `HomeKeyService`, an accessibility service in its own `:keys`
+  process, answers the Home key and sends any appearance of the stock home or the recovery screen back to arca TV.
+  The same service takes the four colour keys when one has a target (`RemoteColours`, a small file the service reads
+  on each press); every other key passes untouched. `HomeMode.keyServiceWanted` decides when it must be on (arca TV
+  holds the home role, asked to the system because the stored mode can lag behind, and keys mode or a colour target;
+  it is turned on from the app's own process, since TCL's boot manager can block background jobs); *Original* and the crash revert turn it off and restore
+  `accessibility_enabled` as it was.
 - Never uninstall or clear the data of system apps; only `pm disable-user --user 0` through `HomeMode`.
 - Never commit `config.yaml`, keystores or tokens.
 - Do not bump versions or tag unless the maintainer asks.

@@ -144,6 +144,7 @@ final class Header {
     }
 
     private Paint screenTitle, screenMeridiem, tagName;
+    private final Paint screenDot = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private void ensureScreenPaints() {
         if (screenTitle != null) return;
@@ -177,6 +178,14 @@ final class Header {
     }
 
     void drawScreen(Canvas c, String title, String time, String ampm, String day, String tag) {
+        drawScreen(c, title, time, ampm, day, tag, 0);
+    }
+
+    void drawScreen(Canvas c, String title, String time, String ampm, String day, int dot) {
+        drawScreen(c, title, time, ampm, day, "TV", dot);
+    }
+
+    private void drawScreen(Canvas c, String title, String time, String ampm, String day, String tag, int dot) {
         ensureScreenPaints();
         float left = LEFT * k, right = RIGHT * k, titleBase = 184 * k;
         float centre = 84 * k + 17 * k;
@@ -185,7 +194,12 @@ final class Header {
         date.setTextAlign(Paint.Align.RIGHT);
         c.drawText(day, right, crumbBase, date);
         date.setTextAlign(Paint.Align.LEFT);
-        c.drawText(title, left - Ui.leftBearing(screenTitle, title), titleBase, screenTitle);
+        float inset = dot == 0 ? 0 : 64 * k;
+        if (dot != 0) {
+            screenDot.setColor(dot);
+            c.drawCircle(left + 20 * k, titleBase - 26 * k, 20 * k, screenDot);
+        }
+        c.drawText(title, left + inset - Ui.leftBearing(screenTitle, title), titleBase, screenTitle);
         float ampmWidth = screenMeridiem.measureText(ampm);
         c.drawText(ampm, right - ampmWidth, titleBase, screenMeridiem);
         float timeWidth = screenTitle.measureText(time);

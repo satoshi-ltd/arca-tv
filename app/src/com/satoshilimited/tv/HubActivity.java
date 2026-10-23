@@ -187,7 +187,7 @@ public class HubActivity extends Activity {
 
         private void openAddress() {
             address.setLength(0);
-            address.append(ArcaHub.localPrefix());
+            address.append(LanScan.prefix());
             error = "";
             state = ADDRESS;
             focus = 10;

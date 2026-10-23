@@ -35,7 +35,7 @@ Connect a hub and it becomes a way to enjoy your own library from the sofa:
 | Continue watching | Your Jellyfin server; optional |
 | Indoor air and device controls | Your domo server and supported devices; optional |
 
-Installation uses a computer on the same network. No root is needed. arca TV changes the home screen and screensaver and disables selected built-in apps; nothing is uninstalled. **Home screen → Original** restores the recorded home screen and re-enables the apps it disabled. A watchdog attempts recovery after repeated crashes.
+Installation uses a computer on the same network. No root is needed. arca TV changes the home screen and screensaver and disables selected built-in apps; nothing is uninstalled. On some TVs (and for the Colour buttons) it also turns on a small accessibility service that reads only the Home key and the four colour keys. **Home screen → Original** restores the recorded home screen and re-enables the apps it disabled. A watchdog attempts recovery after repeated crashes.
 
 ## A look around
 
@@ -59,7 +59,7 @@ You need a Google TV or Android TV (Android 9 or newer) and a computer on the sa
    ```
    Install arca TV (github.com/satoshi-ltd/arca-tv) on my TV at <TV_IP>. I live in Tokyo.
    ```
-   Use your TV’s IP in place of `<TV_IP>` and your own city in place of Tokyo. The assistant needs terminal access. To add *Continue watching* or arca domo, say so in the same request, for example: `My Jellyfin is at http://<JELLYFIN_IP>:8096` or `My domo server is at http://<DOMO_IP>:8800`; the assistant leaves the tokens empty in `config.yaml` for you to paste them in yourself, so they never go through the chat.
+   Use your TV’s IP in place of `<TV_IP>` and your own city in place of Tokyo. The assistant needs terminal access. To add arca domo, say so in the same request, for example: `My domo server is at http://<DOMO_IP>:8800`; the assistant leaves the token empty in `config.yaml` for you to paste them in yourself, so they never go through the chat.
    It downloads the code, builds the app and puts it on your TV, asking before installing any missing tools on your computer. When the TV asks *Allow USB debugging?*, tick *Always allow* and accept.
 3. **Back on the TV:** open **arca TV → Home screen → arca TV** and accept the debugging prompt (tick *Always allow*). The first time, a short welcome walks you through connecting your arca hub. To go back to the factory home screen: **arca TV → Home screen → Original**.
 
@@ -100,16 +100,12 @@ Keep `arca-tv.keystore`: every update must be signed with the same key, or Andro
 ```yaml
 city: "Tokyo"
 
-jellyfin:              # the Continue watching row
-  url: "http://<JELLYFIN_IP>:8096"
-  token: ""            # create it in your Jellyfin dashboard
-
 domo:                  # arca domo: your domo server
   url: "http://<DOMO_IP>:8800"
   token: ""
 ```
 
-Paste tokens into `config.yaml` yourself. Never share them or commit them. An older `config.properties` is moved into `config.yaml` by the next build.
+Paste tokens into `config.yaml` yourself. Never share them or commit them. Jellyfin is not configured here: connect it in **Settings → Continue watching**, which finds the server and shows a code to approve in Jellyfin (user settings → Quick Connect). The sign-in stays on the TV, not in the APK. An older `config.properties` is moved into `config.yaml` by the next build.
 
 ## Connect your arca library
 
@@ -122,7 +118,24 @@ No hub yet? Start with [arca](https://arca.satoshi-ltd.com/#setup). A computer y
 
 The hub must be on and reachable while the TV streams photos, videos or music. arca TV is a player, not a full synchronized copy of your files. Its credential cannot edit your library. You can disconnect it on the TV or revoke it from the hub.
 
-The TV is named **arca TV** by default. Change it in **Settings → TV name**; the hub receives the new name.
+The hub shows the TV by the name Android gives it (**Settings → Device preferences → About → Device name**), the same one Cast and Bluetooth use; it is **arca TV** when the TV has none.
+
+## What arca TV changes on your TV
+
+When you choose **Home screen → arca TV**, arca TV changes these things, and only these:
+
+| What | How it goes back |
+| --- | --- |
+| The home screen becomes arca TV | **Home screen → Original** gives back the one it recorded |
+| The screensaver becomes arca TV's, as the selected one and as the system's fallback | Original restores the recorded values |
+| Some apps are turned off (`pm disable-user`): the TV's own home screen, its setup app, the previous screensaver, a short list of preinstalled extras per brand, and the screensavers of system apps | Original turns back on only what arca TV turned off |
+| A small accessibility service, only on TVs where the setup app owns the Wi-Fi or when you give a Colour button a target | Original turns it off |
+
+It never uninstalls anything, never clears an app's data and never touches picture, sound, inputs, the remote or Google services and the Play Store. An app that saved a Wi-Fi network is never turned off, because Android would erase the network. If arca TV's home screen fails three times in a row, the TV goes back to its original home screen by itself.
+
+The accessibility service asks only to see the keys, not the screen: it acts on the Home key and the four colour keys and lets every other key through untouched.
+
+**Keep USB debugging on.** arca TV makes these changes through the TV's own debugging connection, so the switch to Original, the check after a restart, the Colour buttons and the automatic return to the original home screen all stop working without it. To close the door to your computer instead, open **Developer options → Revoke USB debugging authorizations**, then open **arca TV → Home screen** once so the app asks for its own permission again: from then on only the app can use it.
 
 ## Using the remote
 
@@ -168,11 +181,11 @@ Starts after one minute without input, on any arca screen. With a hub it shows y
 
 ## Privacy and local playback
 
-arca TV adds no accounts, ads, analytics or telemetry. Photos and music stream from your hub; Jellyfin and domo connect directly to the servers you configure. The hub receives the TV’s name, app version and the library folder IDs it uses. The TV’s player credential cannot edit library files and can be revoked from the hub.
+arca TV adds no accounts, ads, analytics or telemetry. Photos and music stream from your hub; Jellyfin and domo connect directly to your own servers. The hub receives the TV’s name, app version and the library folder IDs it uses. The TV’s player credential cannot edit library files and can be revoked from the hub.
 
 Weather is optional: city searches send the name you enter to Open-Meteo, and forecast and outdoor-air requests send that city’s coordinates. Those requests also expose your public IP to the service. Android TV and the apps you open have their own network activity and privacy policies; arca TV does not make them local-only.
 
-The hub credential stays in the app’s private storage. Jellyfin and domo keys are compiled into your APK from `config.yaml`; keep that APK private. Never share or commit `config.yaml`, tokens or the signing key.
+The hub credential stays in the app’s private storage. The domo key is compiled into your APK from `config.yaml`; keep that APK private. The Jellyfin sign-in is made on the TV and never leaves it. Never share or commit `config.yaml`, tokens or the signing key.
 
 ## Development
 

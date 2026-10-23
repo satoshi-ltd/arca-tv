@@ -101,7 +101,7 @@ final class HomeApps {
         return PHOTOS.equals(pkg) || MUSIC.equals(pkg) || DOMO.equals(pkg);
     }
 
-    private static boolean hubAvailable(Context c, String pkg) {
+    static boolean hubAvailable(Context c, String pkg) {
         if (DOMO.equals(pkg)) return ArcaDomo.enabled();
         return ArcaHub.has(c, PHOTOS.equals(pkg) ? "photos" : "music");
     }
@@ -152,6 +152,8 @@ final class HomeApps {
             "com.homwee.chtvmanager",               // Philco: TV Manager (cleaner)
             "com.homwee.multiscreenshare",          // Philco: Midiacast (Chromecast still works)
             "com.xiaomi.mitv.manualhelp",           // Xiaomi: user manual
+            "com.mitv.livetv",                      // Xiaomi: Live TV (the HDMI inputs have their own shortcuts)
+            "com.xiaomi.mitv.smartshare",           // Xiaomi: Miracast
             "com.google.android.videos",            // Google Play Movies (discontinued)
             "com.disney.starplus",                  // Star+ (merged into Disney+)
             "com.tcl.exhibit",                      // TCL: T-Exhibition
@@ -399,7 +401,7 @@ final class HomeApps {
             it.brand = brandOf(pkg);
             items.add(it);
         }
-        for (String pkg : ARCA_APPS) if (hubAvailable(c, pkg)) items.add(hubItem(pkg));
+        for (String pkg : ARCA_APPS) if (!DOMO.equals(pkg) && hubAvailable(c, pkg)) items.add(hubItem(pkg));
         Collections.sort(items, (a, b) -> {
             int ia = onShelf.indexOf(a.pkg), ib = onShelf.indexOf(b.pkg);
             if ((ia >= 0) != (ib >= 0)) return ia >= 0 ? -1 : 1;
@@ -413,32 +415,30 @@ final class HomeApps {
     }
 
     /** Opens the item with the system zoom transition growing out of the card (the app starts opening right away). */
-    static boolean open(Activity a, Item it, View from, int x, int y, int w, int h) {
-        Intent intent;
+    static Intent intentFor(Context c, Item it) {
         switch (it.kind) {
             case APP:
                 if (hubApp(it.pkg)) {
-                    intent = new Intent().setComponent(new ComponentName(a, PHOTOS.equals(it.pkg) ? PhotosExplorerActivity.class : MUSIC.equals(it.pkg) ? HubMusicActivity.class : DomoActivity.class));
-                    break;
+                    return new Intent().setComponent(new ComponentName(c, PHOTOS.equals(it.pkg) ? PhotosExplorerActivity.class : MUSIC.equals(it.pkg) ? HubMusicActivity.class : DomoActivity.class));
                 }
-                intent = launchIntent(a.getPackageManager(), it.pkg);
+                Intent intent = launchIntent(c.getPackageManager(), it.pkg);
                 if (intent != null) intent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-                break;
+                return intent;
             case LIVE_TV:
-                intent = liveTv(a);
-                break;
+                return liveTv(c);
             case INPUT:
-                intent = new Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(it.inputId));
-                break;
+                return new Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(it.inputId));
             case SETTINGS:
-                intent = new Intent().setComponent(new ComponentName(a, SettingsActivity.class));
-                break;
+                return new Intent().setComponent(new ComponentName(c, SettingsActivity.class));
             case ANDROID_SETTINGS:
-                intent = new Intent(Settings.ACTION_SETTINGS);
-                break;
+                return new Intent(Settings.ACTION_SETTINGS);
             default:
-                return false;
+                return null;
         }
+    }
+
+    static boolean open(Activity a, Item it, View from, int x, int y, int w, int h) {
+        Intent intent = intentFor(a, it);
         if (intent == null) return false;
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {

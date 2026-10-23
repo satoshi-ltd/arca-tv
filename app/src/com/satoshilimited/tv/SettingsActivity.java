@@ -64,11 +64,7 @@ public class SettingsActivity extends Activity {
     }
 
     static final class SettingsView extends View implements Choreographer.FrameCallback {
-        private static final String[][] STREAMING = {
-            {"Jellyfin", Jellyfin.PACKAGE}, {"YouTube", "com.google.android.youtube.tv"},
-            {"Netflix", "com.netflix.ninja"}, {"Apple TV", "com.apple.atve.androidtv.appletv"}};
-        private String[] sourceNames;
-        private static final int MAIN = 0, HOME_CHOICE = 1, SOURCE = 2, SHELF_EDIT = 3;
+        private static final int MAIN = 0, HOME_CHOICE = 1, SHELF_EDIT = 2;
         private static final int BG_TOP = 0xFF141414, BG_MID = 0xFF0E0E0E, BG_BOTTOM = 0xFF0A0A0A;
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, DIM = 0x73FFFFFF, CARD = 0xFF1E1E1E, WARN = 0xFFFFC266;
         private static final float CARD_L = 112, CARD_R = 1112, CARD_TOP = 330, INSET = 32;
@@ -85,10 +81,11 @@ public class SettingsActivity extends Activity {
         private final Spoken spoken;
         private JSONObject state = new JSONObject();
         private int screen = MAIN, focus, scroll, shelfCount;
-        private static final int[] MAIN_ICONS = {R.drawable.icon_home_screen, R.drawable.icon_tv_name, R.drawable.icon_hub, R.drawable.icon_continue_watching, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_info};
+        private static final int[] MAIN_ICONS = {R.drawable.icon_home_screen, R.drawable.icon_hub, R.drawable.icon_continue_watching, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_info};
+        private static final int[] MAIN_ICONS_COLOURS = {R.drawable.icon_home_screen, R.drawable.icon_hub, R.drawable.icon_continue_watching, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_remote, R.drawable.icon_info};
         private String note = "";
         private long noteAt;
-        private boolean grabbing;
+        private boolean grabbing, colours;
         private boolean running, okDown, backDown, wasBusy, ringReady;
         private StaticLayout errorLayout;
         private String errorShown;
@@ -148,6 +145,7 @@ public class SettingsActivity extends Activity {
             if (running) return;
             running = true;
             shelfCount = HomeApps.shelfPackages(getContext()).size();
+            colours = RemoteKeys.hasColours();
             startedAt = SystemClock.uptimeMillis();
             lastNanos = 0;
             handler.post(poll);
@@ -227,7 +225,6 @@ public class SettingsActivity extends Activity {
             switch (screen) {
                 case MAIN: return mainRows().length;
                 case HOME_CHOICE: return 2;
-                case SOURCE: return sources().length;
                 default: return Math.min(PICK_VISIBLE, shelfRows.size());
             }
         }
@@ -252,7 +249,6 @@ public class SettingsActivity extends Activity {
         private String heading() {
             switch (screen) {
                 case HOME_CHOICE: return "Home screen";
-                case SOURCE: return "Continue watching";
                 case SHELF_EDIT: return "Shortcuts";
                 default: return "Settings";
             }
@@ -260,16 +256,16 @@ public class SettingsActivity extends Activity {
 
         private String[][] mainRows() {
             String mode = freeActive() ? "arca TV" : "Original";
-            return new String[][] {
-                {"Home screen", busy() ? "" : mode},
-                {"TV name", Prefs.tvName()},
-                {"Hub", ArcaHub.connected(getContext()) ? ArcaHub.name(getContext()) : "Not connected"},
-                {"Continue watching", sourceName()},
-                {"Screensaver", !Prefs.screensaver() ? "Off" : PhotoStream.available(getContext()) ? "Photos" : "Colours"},
-                {"Weather", weatherValue()},
-                {"Shortcuts", shelfCount + " of " + HomeApps.MAX_SHELF},
-                {"Version", releaseName(getContext())},
-            };
+            List<String[]> rows = new ArrayList<>();
+            rows.add(new String[] {"Home screen", busy() ? "" : mode});
+            rows.add(new String[] {"Hub", ArcaHub.connected(getContext()) ? ArcaHub.name(getContext()) : "Not connected"});
+            rows.add(new String[] {"Continue watching", sourceName()});
+            rows.add(new String[] {"Screensaver", !Prefs.screensaver() ? "Off" : PhotoStream.available(getContext()) ? "Photos" : "Colours"});
+            rows.add(new String[] {"Weather", weatherValue()});
+            rows.add(new String[] {"Shortcuts", shelfCount + " of " + HomeApps.MAX_SHELF});
+            if (colours) rows.add(new String[] {"Colour buttons", RemoteColours.count(getContext()) + " of " + RemoteColours.NAMES.length});
+            rows.add(new String[] {"Version", releaseName(getContext())});
+            return rows.toArray(new String[0][]);
         }
 
         private static String weatherValue() {
@@ -278,6 +274,7 @@ public class SettingsActivity extends Activity {
         }
 
         private static String sourceName() {
+            if (!Jellyfin.configured()) return "Connect";
             return Jellyfin.enabled() ? "Jellyfin" : "Off";
         }
 
@@ -290,8 +287,6 @@ public class SettingsActivity extends Activity {
                 }
                 case HOME_CHOICE:
                     return (row == 0 ? "arca TV" : "Original") + ((row == 0) == freeActive() ? ", in use" : "");
-                case SOURCE:
-                    return sources()[row] + (isSoon(row) ? ", coming soon" : row == currentSource() ? ", selected" : "");
                 default: {
                     int at = scroll + row;
                     if (at >= shelfRows.size()) return "";
@@ -333,7 +328,7 @@ public class SettingsActivity extends Activity {
                 rowTitle.setColor(INK);
                 rowValue.setColor(MUTE);
                 float iconX = rowRect.left + INSET * k;
-                Icons.draw(getContext(), c, MAIN_ICONS[i], iconX + 14 * k, rowRect.centerY(), 28 * k, i == focus ? Icons.INK : Icons.MUTE);
+                Icons.draw(getContext(), c, (colours ? MAIN_ICONS_COLOURS : MAIN_ICONS)[i], iconX + 14 * k, rowRect.centerY(), 28 * k, i == focus ? Icons.INK : Icons.MUTE);
                 c.drawText(rows[i][0], iconX + 44 * k, base, rowTitle);
                 float right = rowRect.right - INSET * k;
                 if (i == 0 && busy()) {
@@ -349,52 +344,7 @@ public class SettingsActivity extends Activity {
             rowValue.setColor(MUTE);
         }
 
-        private String[] sources() {
-            if (sourceNames == null) {
-                List<String> names = new ArrayList<>();
-                for (String[] app : STREAMING) {
-                    try {
-                        getContext().getPackageManager().getPackageInfo(app[1], 0);
-                        names.add(app[0]);
-                    } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
-                    }
-                }
-                names.add("Off");
-                sourceNames = names.toArray(new String[0]);
-            }
-            return sourceNames;
-        }
-
-        private boolean isSoon(int row) {
-            String name = sources()[row];
-            return !name.equals("Jellyfin") && !name.equals("Off");
-        }
-
-        private int currentSource() {
-            String[] names = sources();
-            String wanted = Jellyfin.enabled() ? "Jellyfin" : "Off";
-            for (int i = 0; i < names.length; i++) if (names[i].equals(wanted)) return i;
-            return names.length - 1;
-        }
-
         private void drawChoice(Canvas c) {
-            if (screen == SOURCE) {
-                String[] names = sources();
-                int current = currentSource();
-                for (int i = 0; i < names.length; i++) {
-                    rowBox(i, rowRect);
-                    boolean soon = isSoon(i);
-                    rowTitle.setColor(soon ? DIM : INK);
-                    rowValue.setColor(DIM);
-                    float base = rowRect.centerY() + Ui.halfCap(rowTitle);
-                    c.drawText(names[i], rowRect.left + INSET * k, base, rowTitle);
-                    if (soon) c.drawText("Soon", rowRect.right - INSET * k, base, rowValue);
-                    else if (i == current) drawCheck(c, rowRect.right - (INSET + 16) * k, rowRect.centerY());
-                }
-                rowTitle.setColor(INK);
-                rowValue.setColor(MUTE);
-                return;
-            }
             String[][] options = {{"arca TV", "Your home screen, no ads"}, {"Original", "The TV's factory home screen"}};
             int current = freeActive() ? 0 : 1;
             for (int i = 0; i < options.length; i++) {
@@ -440,7 +390,7 @@ public class SettingsActivity extends Activity {
                 hintPaint.setColor(MUTE);
                 return;
             }
-            if ((screen == MAIN || screen == SOURCE) && !note.isEmpty() && SystemClock.uptimeMillis() - noteAt < 4000) {
+            if (screen == MAIN && !note.isEmpty() && SystemClock.uptimeMillis() - noteAt < 4000) {
                 hintPaint.setColor(WARN);
                 c.drawText(note, CARD_L * k, y, hintPaint);
                 hintPaint.setColor(MUTE);
@@ -543,7 +493,7 @@ public class SettingsActivity extends Activity {
                             if (grabbing) {
                                 grabbing = false;
                             } else {
-                                focus = screen == HOME_CHOICE ? 0 : screen == SOURCE ? 3 : 6;
+                                focus = screen == HOME_CHOICE ? 0 : 5;
                                 screen = MAIN;
                                 shelfCount = HomeApps.shelfPackages(getContext()).size();
                             }
@@ -632,12 +582,6 @@ public class SettingsActivity extends Activity {
                 }
                 screen = MAIN;
                 focus = 0;
-            } else if (screen == SOURCE && isSoon(focus)) {
-                return;
-            } else if (screen == SOURCE) {
-                Prefs.setContinueSource(sources()[focus].equals("Jellyfin") ? "jellyfin" : "off");
-                screen = MAIN;
-                focus = 3;
             } else if (screen == SHELF_EDIT) {
                 toggleOrGrab();
                 invalidate();
@@ -648,18 +592,18 @@ public class SettingsActivity extends Activity {
                 screen = HOME_CHOICE;
                 focus = freeActive() ? 0 : 1;
             } else if (focus == 1) {
-                c.startActivity(new Intent(c, TvNameActivity.class));
-            } else if (focus == 2) {
                 c.startActivity(new Intent(c, HubActivity.class));
+            } else if (focus == 2) {
+                c.startActivity(new Intent(c, JellyfinActivity.class));
             } else if (focus == 3) {
-                screen = SOURCE;
-                focus = currentSource();
-            } else if (focus == 4) {
                 Prefs.setScreensaver(!Prefs.screensaver());
-            } else if (focus == 5) {
+                HomeMode.requestSaver(c);
+            } else if (focus == 4) {
                 c.startActivity(new Intent(c, LocationActivity.class));
-            } else if (focus == 6) {
+            } else if (focus == 5) {
                 openShelfEditor();
+            } else if (focus == 6 && colours) {
+                c.startActivity(new Intent(c, ColourButtonsActivity.class));
             }
             invalidate();
             spoken.focusMoved();

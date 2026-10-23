@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.satoshilimited.tv"
-    android:versionCode="3"
-    android:versionName="1.0.2">
+    android:versionCode="5"
+    android:versionName="1.0.4">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -51,8 +51,8 @@
     <application
         android:name=".App"
         android:label="arca TV"
-        android:icon="@drawable/icon"
-        android:banner="@drawable/banner"
+        android:icon="@drawable/arca_icon"
+        android:banner="@drawable/arca_banner"
         android:allowBackup="false"
         android:usesCleartextTraffic="true">
 
@@ -62,6 +62,8 @@
             android:process=":home"
             android:exported="true"
             android:label="arca TV"
+            android:icon="@drawable/arca_icon"
+            android:banner="@drawable/arca_banner"
             android:launchMode="singleTask"
             android:taskAffinity="com.satoshilimited.tv.settings"
             android:excludeFromRecents="true"
@@ -76,7 +78,17 @@
         </activity>
 
         <activity
-            android:name=".TvNameActivity"
+            android:name=".JellyfinActivity"
+            android:process=":home"
+            android:exported="false"
+            android:label="arca TV"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:theme="@style/ArcaTv.Home" />
+
+        <activity
+            android:name=".ColourButtonsActivity"
             android:process=":home"
             android:exported="false"
             android:label="arca TV"
@@ -218,5 +230,18 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <service
+            android:name=".HomeKeyService"
+            android:process=":keys"
+            android:exported="true"
+            android:label="arca TV"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/home_key_service" />
+        </service>
     </application>
 </manifest>

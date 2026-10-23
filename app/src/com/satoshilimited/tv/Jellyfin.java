@@ -55,7 +55,6 @@ final class Jellyfin {
     private final List<Listener> listeners = new ArrayList<>();
     private volatile boolean fetching;
     private volatile long fetchedAt, failedAt;
-    private String userId;
 
     private Jellyfin(Context c) {
         context = c;
@@ -66,7 +65,14 @@ final class Jellyfin {
     }
 
     static boolean configured() {
-        return !Config.JELLYFIN_URL.trim().isEmpty() && !Config.JELLYFIN_TOKEN.trim().isEmpty();
+        return !Prefs.jellyfinUrl().isEmpty() && !Prefs.jellyfinToken().isEmpty() && !Prefs.jellyfinUserId().isEmpty();
+    }
+
+    void reset() {
+        items = new ArrayList<>();
+        fetchedAt = 0;
+        failedAt = 0;
+        notifyListeners();
     }
 
     void addListener(Listener l) { if (!listeners.contains(l)) listeners.add(l); }
@@ -92,11 +98,7 @@ final class Jellyfin {
     }
 
     private void load() throws Exception {
-        if (userId == null) {
-            JSONArray users = new JSONArray(text(url("/Users")));
-            if (users.length() == 0) throw new IOException("no users");
-            userId = users.getJSONObject(0).getString("Id");
-        }
+        String userId = Prefs.jellyfinUserId();
         JSONArray resume = new JSONObject(text(url("/UserItems/Resume?userId=" + userId + "&limit=" + LIMIT + "&mediaTypes=Video"))).getJSONArray("Items");
         JSONArray next = new JSONObject(text(url("/Shows/NextUp?userId=" + userId + "&limit=" + LIMIT + "&enableResumable=false"))).getJSONArray("Items");
         java.util.Set<String> series = new java.util.HashSet<>();
@@ -161,7 +163,7 @@ final class Jellyfin {
 
     private long lastPlayed(String seriesId) {
         try {
-            JSONArray found = new JSONObject(text(url("/Items?userId=" + userId + "&parentId=" + seriesId
+            JSONArray found = new JSONObject(text(url("/Items?userId=" + Prefs.jellyfinUserId() + "&parentId=" + seriesId
                     + "&recursive=true&includeItemTypes=Episode&filters=IsPlayed&sortBy=DatePlayed&sortOrder=Descending&limit=1"))).getJSONArray("Items");
             JSONObject data = found.length() == 0 ? null : found.getJSONObject(0).optJSONObject("UserData");
             return data == null ? 0 : parseDate(data.optString("LastPlayedDate", ""));
@@ -183,7 +185,7 @@ final class Jellyfin {
     }
 
     private static String base() {
-        String u = Config.JELLYFIN_URL.trim();
+        String u = Prefs.jellyfinUrl().trim();
         return u.endsWith("/") ? u.substring(0, u.length() - 1) : u;
     }
 
@@ -191,15 +193,15 @@ final class Jellyfin {
         return base() + path;
     }
 
-    private static HttpURLConnection connect(String url) throws IOException {
+    private HttpURLConnection connect(String url) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(5000);
         c.setReadTimeout(8000);
-        c.setRequestProperty("Authorization", "MediaBrowser Token=\"" + Config.JELLYFIN_TOKEN.trim() + "\"");
+        c.setRequestProperty("Authorization", JellyfinLink.header(context, Prefs.jellyfinToken()));
         return c;
     }
 
-    private static byte[] bytes(String url) throws IOException {
+    private byte[] bytes(String url) throws IOException {
         HttpURLConnection c = connect(url);
         try {
             if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
@@ -215,7 +217,7 @@ final class Jellyfin {
         }
     }
 
-    private static String text(String url) throws IOException {
+    private String text(String url) throws IOException {
         return new String(bytes(url), StandardCharsets.UTF_8);
     }
 

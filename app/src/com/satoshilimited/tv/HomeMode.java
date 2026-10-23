@@ -1,8 +1,12 @@
 package com.satoshilimited.tv;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.role.RoleManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.os.Build;
 import android.os.SystemClock;
+import android.view.accessibility.AccessibilityManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -136,6 +140,24 @@ final class HomeMode {
         ModeJob.schedule(c, ModeJob.VERIFY, null, 0);
     }
 
+    private static long keysCheckedAt;
+
+    static void checkKeys(Context c) {
+        long now = SystemClock.elapsedRealtime();
+        synchronized (FILE_LOCK) {
+            if (keysCheckedAt != 0 && now - keysCheckedAt < 10 * 60_000) return;
+            keysCheckedAt = now;
+        }
+        Context app = c.getApplicationContext();
+        new Thread(() -> {
+            JSONObject s = state(app);
+            if (keyServiceWanted(app, s) && !keyServiceRunning(app)) {
+                AppLog.w("key service not running: turning it on");
+                syncKeyServiceNow(app);
+            }
+        }).start();
+    }
+
 
     // MARK: - Switches (main process, from ModeJob)
 
@@ -161,22 +183,12 @@ final class HomeMode {
             latest.put("originalHome", home).put("originalDream", dream);
             String saver = adb.shell("settings get secure screensaver_components").trim();
             if (!saver.contains(PKG + "/")) latest.put("originalScreensaver", safeComponents(saver));
+            if (!latest.has("originalSaverEnabled")) latest.put("originalSaverEnabled", adb.shell("settings get secure screensaver_enabled").trim());
             save(c, latest);
-            // Turning off an app makes Android delete the Wi-Fi networks it saved (#14), and Original can't bring them
-            // back. The TV's first setup usually saved the network: then stop here, before anything changes.
+            // Turning off an app makes Android delete the Wi-Fi networks it saved (#14), and Original can't bring them back.
             Set<String> owners = wifiOwners(adb);
             boolean setupHome = setupIsHome(adb);
-            if ((setupHome && owners.contains(GOOGLE_SETUP)) || owners.contains(packageOf(home))) {
-                throw new IOException(Ui.tr("a configuração inicial da TV salvou o Wi-Fi, e desligá-la apagaria essas redes. "
-                        + "Em Configurações → Rede e Internet, esqueça a rede e conecte de novo (as fora de alcance não aparecem "
-                        + "lá: um assistente de IA apaga pelo computador) e tente outra vez.",
-                        "the TV's first setup saved the Wi-Fi, and turning it off would erase those networks. "
-                        + "In Settings → Network & Internet, forget the network and connect again (networks out of range don't "
-                        + "show there: an AI assistant can remove them from your computer), then try once more.",
-                        "la configuración inicial del TV guardó el Wi-Fi, y desactivarla borraría esas redes. "
-                        + "En Ajustes → Red e Internet, olvida la red y vuelve a conectarte (las fuera de alcance no aparecen "
-                        + "ahí: un asistente de IA las borra desde la computadora) y vuelve a intentarlo."));
-            }
+            boolean keys = owners.contains(GOOGLE_SETUP) || owners.contains(packageOf(home));
             if (metrics(latest, ORIGINAL) == null && !home.isEmpty()) {
                 busy(c, Ui.tr("Medindo o Início original…", "Measuring the original home screen…"));
                 measureHomeTime(c, adb, ORIGINAL);
@@ -186,19 +198,29 @@ final class HomeMode {
             Watchdog.clear(c);
             check(adb.shell("cmd package set-home-activity " + HOME_ACTIVITY), "Success",
                     Ui.tr("o Android não aceitou o novo Início", "Android didn't accept the new home screen"));
-            adb.shell("settings put secure screensaver_components " + DREAM);
+            ensureSaver(adb);
             JSONObject started = state(c);
-            started.put("mode", FREE).put("homeReverted", false).put("setupHome", setupHome);
+            started.put("mode", FREE).put("homeReverted", false).put("setupHome", setupHome).put("keys", keys);
             save(c, started);
-            List<String> targets = targets(home, dream, setupHome);
+            homeKeyService(c, adb, keys || RemoteColours.any(c));
+            boolean keysOn = !keys || keyServiceListed(adb);
+            List<String> targets = targets(home, dream, setupHome, keys);
+            if (Prefs.screensaver()) for (String other : systemDreams(adb, owners)) if (!targets.contains(other)) targets.add(other);
             Set<String> disabled = new HashSet<>(stringList(state(c), "disabled"));
             Set<String> present = packages(adb, "");
+            boolean setupOn = present.contains(GOOGLE_SETUP) && !packages(adb, "-d").contains(GOOGLE_SETUP);
+            String homePkg = packageOf(home);
             int done = 0;
             for (String pkg : targets) {
                 done++;
                 busy(c, Ui.tr("Desligando apps (", "Turning off apps (") + done + "/" + targets.size() + ")…");
                 if (PROTECTED.contains(pkg) || !present.contains(pkg) || owners.contains(pkg)) continue;
+                if (pkg.equals(homePkg) && setupOn) {
+                    AppLog.w("kept the stock home on: Google TV's setup app is still on");
+                    continue;
+                }
                 String out = adb.shell("pm disable-user --user 0 " + pkg);
+                if (pkg.equals(GOOGLE_SETUP) && out.contains("disabled-user")) setupOn = false;
                 if (out.contains("disabled-user")) {
                     disabled.add(pkg);
                     JSONObject now = state(c);
@@ -210,10 +232,12 @@ final class HomeMode {
             }
             s = state(c);
             s.put("mode", FREE).put("since", System.currentTimeMillis()).put("homeReverted", false)
-                    .put("disabled", new JSONArray(sorted(disabled))).put("setupHome", setupHome);
+                    .put("disabled", new JSONArray(sorted(disabled))).put("setupHome", setupHome).put("keys", keys);
             save(c, s);
             notice(c, Ui.tr("arca TV ligado: Início e tela de descanso novos, " + disabled.size() + " apps desligados.",
                     "arca TV is on: new home screen and screensaver, " + disabled.size() + " apps turned off."));
+            if (!keysOn) notice(c, Ui.tr("Não consegui ligar o botão Início do arca TV; o Início do Google TV pode voltar.",
+                    "Couldn't turn on arca TV's Home button; Google TV's home screen may come back."));
             busy(c, Ui.tr("Medindo o arca TV…", "Measuring arca TV…"));
             measureHomeTime(c, adb, FREE);
             done(c, null);
@@ -230,7 +254,7 @@ final class HomeMode {
             busy(c, Ui.tr("Religando os apps…", "Turning the apps back on…"));
             String home = originalHome(s);
             Set<String> toEnable = new HashSet<>(stringList(s, "disabled"));
-            for (String pkg : targets(home, originalDream(s), true)) {
+            for (String pkg : targets(home, originalDream(s), true, false)) {
                 if (!Arrays.asList(DEBLOAT).contains(pkg) && !Arrays.asList(ASSISTANT).contains(pkg)) toEnable.add(pkg);
             }
             Set<String> present = packages(adb, "");
@@ -245,11 +269,12 @@ final class HomeMode {
                 if (!out.contains("new state: enabled")) failed.add(pkg);
             }
             busy(c, Ui.tr("Devolvendo o Início original…", "Restoring the original home screen…"));
+            homeKeyService(c, adb, false);
             boolean homeOk = restoreHome(adb, home);
             restoreScreensaver(adb, s);
             s = state(c);
             s.put("mode", ORIGINAL).put("since", System.currentTimeMillis()).put("homeReverted", false)
-                    .put("disabled", new JSONArray(failed));
+                    .put("disabled", new JSONArray(failed)).put("keys", false);
             save(c, s);
             if (failed.isEmpty() && homeOk) {
                 notice(c, Ui.tr("Modo original: Início, tela de descanso e apps de fábrica de volta.",
@@ -268,6 +293,97 @@ final class HomeMode {
         } catch (Exception e) {
             done(c, Ui.tr("Não deu para voltar ao original: ", "Couldn't go back to the original: ") + e.getMessage());
         }
+    }
+
+    private static final String KEY_SERVICE = PKG + "/" + PKG + ".HomeKeyService";
+    private static final ComponentName KEY_COMPONENT = new ComponentName(PKG, PKG + ".HomeKeyService");
+
+    static boolean homeKeyService(Context c, Adb adb, boolean on) throws IOException {
+        String current = adb.shell("settings get secure enabled_accessibility_services").trim();
+        if (current.equals("null")) current = "";
+        List<String> list = new ArrayList<>();
+        boolean listed = false;
+        for (String one : current.split(":")) {
+            if (isKeyService(one)) listed = true;
+            else if (!one.isEmpty()) list.add(one);
+        }
+        if (on == listed) return false;
+        JSONObject s = state(c);
+        if (on) {
+            if (!s.has("accessibilityWasOff")) {
+                try { s.put("accessibilityWasOff", !"1".equals(adb.shell("settings get secure accessibility_enabled").trim())); }
+                catch (JSONException ignored) {}
+                save(c, s);
+            }
+            list.add(KEY_SERVICE);
+        }
+        adb.shell(list.isEmpty() ? "settings delete secure enabled_accessibility_services"
+                : "settings put secure enabled_accessibility_services " + quote(String.join(":", list)));
+        if (on) {
+            adb.shell("settings put secure accessibility_enabled 1");
+        } else {
+            if (list.isEmpty() && s.optBoolean("accessibilityWasOff")) adb.shell("settings put secure accessibility_enabled 0");
+            s.remove("accessibilityWasOff");
+            save(c, s);
+        }
+        AppLog.w("home key service " + (on ? "on" : "off"));
+        return true;
+    }
+
+    private static boolean isKeyService(String entry) {
+        return KEY_COMPONENT.equals(ComponentName.unflattenFromString(entry));
+    }
+
+    private static boolean keyServiceListed(Adb adb) throws IOException {
+        for (String one : adb.shell("settings get secure enabled_accessibility_services").trim().split(":")) {
+            if (isKeyService(one)) return true;
+        }
+        return false;
+    }
+
+    static boolean keyServiceRunning(Context c) {
+        AccessibilityManager am = (AccessibilityManager) c.getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (am == null) return false;
+        for (AccessibilityServiceInfo info : am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            if (KEY_COMPONENT.equals(ComponentName.unflattenFromString(info.getId()))) return true;
+        }
+        return false;
+    }
+
+    static boolean homeHeld(Context c) {
+        RoleManager roles = c.getSystemService(RoleManager.class);
+        return roles != null && roles.isRoleHeld(RoleManager.ROLE_HOME);
+    }
+
+    static boolean keyServiceWanted(Context c, JSONObject s) {
+        return homeHeld(c) && (s.optBoolean("keys") || RemoteColours.any(c));
+    }
+
+    static void requestKeys(Context c) {
+        Context app = c.getApplicationContext();
+        new Thread(() -> syncKeyServiceNow(app), "arca-tv-keys").start();
+    }
+
+    static void syncKeyServiceNow(Context app) {
+        synchronized (RUN) {
+            boolean wanted = keyServiceWanted(app, state(app)), running = keyServiceRunning(app);
+            if (wanted == running) return;
+            try (Adb adb = Adb.connect(app, 10_000, null)) {
+                if (wanted) restartKeyService(app, adb);
+                else homeKeyService(app, adb, false);
+            } catch (IOException e) {
+                AppLog.w("key service: " + e.getMessage());
+            }
+        }
+    }
+
+    private static boolean restartKeyService(Context c, Adb adb) throws IOException {
+        homeKeyService(c, adb, false);
+        return homeKeyService(c, adb, true);
+    }
+
+    private static String quote(String value) {
+        return "'" + value.replace("'", "'\\''") + "'";
     }
 
     /** The recorded home screen; without one, Google TV's; without that, the system picks (we leave the role). */
@@ -289,11 +405,12 @@ final class HomeMode {
                 boolean ours = homeHolder(adb).contains(PKG);
                 if (!ours && (!FREE.equals(s.optString("mode")) || s.optBoolean("homeReverted"))) return;
                 String home = originalHome(s);
-                adb.shell("pm enable " + GOOGLE_SETUP);
+                homeKeyService(app, adb, false);
                 if (!restoreHome(adb, home)) {
                     AppLog.w("could not give the home screen back");
                     return;
                 }
+                if (adb.shell("pm enable " + GOOGLE_SETUP).contains("new state: enabled")) restoreHome(adb, home);
                 String homePkg = packageOf(home), dreamPkg = packageOf(originalDream(s));
                 if (dreamPkg != null) adb.shell("pm enable " + dreamPkg);
                 JSONArray kept = new JSONArray();
@@ -338,19 +455,26 @@ final class HomeMode {
                 String home = originalHome(s);
                 Set<String> wanted = new HashSet<>(stringList(s, "disabled"));
                 String dream = originalDream(s);
-                for (String pkg : targets(home, dream, s.optBoolean("setupHome", true))) {
+                boolean keys = s.optBoolean("keys");
+                for (String pkg : targets(home, dream, s.optBoolean("setupHome", true), keys)) {
                     if (!reverted || !(pkg.equals(packageOf(home)) || pkg.equals(GOOGLE_SETUP) || pkg.equals(packageOf(dream)))) {
                         wanted.add(pkg);
                     }
                 }
+                if (Prefs.screensaver()) wanted.addAll(systemDreams(adb, owners));
                 Set<String> disabled = new HashSet<>(stringList(s, "disabled"));
-                for (String pkg : sorted(wanted)) {
+                List<String> order = sorted(wanted);
+                if (order.remove(GOOGLE_SETUP)) order.add(0, GOOGLE_SETUP);
+                boolean setupOn = present.contains(GOOGLE_SETUP) && !disabledNow.contains(GOOGLE_SETUP);
+                for (String pkg : order) {
                     if (PROTECTED.contains(pkg) || !present.contains(pkg) || owners.contains(pkg)) continue;
                     if (disabledNow.contains(pkg)) {
                         disabled.add(pkg);
                         continue;
                     }
+                    if (pkg.equals(packageOf(home)) && setupOn) continue;
                     if (adb.shell("pm disable-user --user 0 " + pkg).contains("disabled-user")) {
+                        if (pkg.equals(GOOGLE_SETUP)) setupOn = false;
                         disabled.add(pkg);
                         fixed.add(pkg);
                     }
@@ -359,11 +483,10 @@ final class HomeMode {
                     adb.shell("cmd package set-home-activity " + HOME_ACTIVITY);
                     fixed.add(Ui.tr("o Início", "the home screen"));
                 }
-                // Whole component names: ".ScreensaverAlone" (Android 11) contains ".Screensaver" (12 and newer).
-                if (!reverted && !Arrays.asList(adb.shell("settings get secure screensaver_components").trim().split(",")).contains(DREAM)) {
-                    adb.shell("settings put secure screensaver_components " + DREAM);
-                    fixed.add(Ui.tr("a tela de descanso", "the screensaver"));
+                if (keyServiceWanted(app, s) && (homeKeyService(app, adb, true) || (!keyServiceRunning(app) && restartKeyService(app, adb)))) {
+                    fixed.add(Ui.tr("os botões do controle", "the remote buttons", "los botones del mando"));
                 }
+                if (!reverted && ensureSaver(adb)) fixed.add(Ui.tr("a tela de descanso", "the screensaver"));
                 JSONObject latest = state(app);
                 latest.put("disabled", new JSONArray(sorted(disabled)));
                 save(app, latest);
@@ -381,15 +504,15 @@ final class HomeMode {
     }
 
     /**
-     * What to turn off: the TV's own home screen and screensaver, Google TV's recovery home (when setupHome: the setup
-     * app is one of the TV's home screens), and the lists above.
+     * What to turn off, in this order: Google TV's setup app (when it is one of the home screens), the TV's own home
+     * screen and screensaver, and the lists above. In keys mode the setup app and the stock home both stay on.
      */
-    private static List<String> targets(String home, String dream, boolean setupHome) {
+    private static List<String> targets(String home, String dream, boolean setupHome, boolean keys) {
         List<String> out = new ArrayList<>();
         String homePkg = packageOf(home);
-        if (homePkg != null && !homePkg.equals(PKG)) out.add(homePkg);
-        if (TV_LAUNCHER.equals(homePkg)) out.add(TV_RECOMMENDATIONS);
-        if (setupHome) out.add(GOOGLE_SETUP);
+        if (!keys && setupHome) out.add(GOOGLE_SETUP);
+        if (!keys && homePkg != null && !homePkg.equals(PKG)) out.add(homePkg);
+        if (!keys && TV_LAUNCHER.equals(homePkg)) out.add(TV_RECOMMENDATIONS);
         String dreamPkg = packageOf(dream);
         if (dreamPkg != null && !dreamPkg.equals(PKG) && !dreamPkg.equals(homePkg)) out.add(dreamPkg);
         out.addAll(Arrays.asList(DEBLOAT));
@@ -472,6 +595,65 @@ final class HomeMode {
         String saver = safeComponents(s.optString("originalScreensaver", ""));
         if (saver.isEmpty()) adb.shell("settings delete secure screensaver_components");
         else adb.shell("settings put secure screensaver_components '" + saver + "'");
+        String fallback = originalDream(s);
+        if (!fallback.isEmpty()) adb.shell("settings put secure screensaver_default_component '" + fallback + "'");
+        String enabled = s.optString("originalSaverEnabled", "");
+        if (enabled.equals("0") || enabled.equals("1")) adb.shell("settings put secure screensaver_enabled " + enabled);
+    }
+
+    /** Whole component names: ".ScreensaverAlone" (Android 11) contains ".Screensaver" (12 and newer). */
+    private static boolean ensureSaver(Adb adb) throws IOException {
+        boolean changed = false;
+        if (!Arrays.asList(adb.shell("settings get secure screensaver_components").trim().split(",")).contains(DREAM)) {
+            adb.shell("settings put secure screensaver_components " + DREAM);
+            changed = true;
+        }
+        if (!adb.shell("settings get secure screensaver_default_component").trim().equals(DREAM)) {
+            adb.shell("settings put secure screensaver_default_component " + DREAM);
+            changed = true;
+        }
+        String enabled = Prefs.screensaver() ? "1" : "0";
+        if (!adb.shell("settings get secure screensaver_enabled").trim().equals(enabled)) {
+            adb.shell("settings put secure screensaver_enabled " + enabled);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static Set<String> systemDreams(Adb adb, Set<String> owners) throws IOException {
+        Set<String> system = packages(adb, "-s");
+        Set<String> out = new HashSet<>();
+        Matcher m = COMPONENT.matcher(adb.shell("cmd package query-services --brief -a android.service.dreams.DreamService"));
+        while (m.find()) {
+            String pkg = packageOf(m.group());
+            if (pkg != null && !pkg.equals(PKG) && system.contains(pkg) && !PROTECTED.contains(pkg) && !owners.contains(pkg)) out.add(pkg);
+        }
+        return out;
+    }
+
+    static void requestSaver(Context c) {
+        Context app = c.getApplicationContext();
+        new Thread(() -> syncSaverNow(app), "arca-tv-saver").start();
+    }
+
+    static void syncSaverNow(Context app) {
+        synchronized (RUN) {
+            if (!homeHeld(app)) return;
+            try (Adb adb = Adb.connect(app, 10_000, null)) {
+                ensureSaver(adb);
+                if (!Prefs.screensaver()) return;
+                Set<String> disabled = new HashSet<>(stringList(state(app), "disabled"));
+                for (String pkg : systemDreams(adb, wifiOwners(adb))) {
+                    if (disabled.contains(pkg) || !adb.shell("pm disable-user --user 0 " + pkg).contains("disabled-user")) continue;
+                    disabled.add(pkg);
+                    JSONObject now = state(app);
+                    now.put("disabled", new JSONArray(sorted(disabled)));
+                    save(app, now);
+                }
+            } catch (Exception e) {
+                AppLog.w("screensaver: " + e.getMessage());
+            }
+        }
     }
 
     /** The system's default screensaver ("package/service"), or "". */

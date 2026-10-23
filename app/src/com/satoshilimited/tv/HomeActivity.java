@@ -15,6 +15,8 @@ import android.widget.TextView;
  * back to the TV's original one.
  */
 public class HomeActivity extends Activity {
+    static final String SAVER = "saver";
+
     private HomeView home;
     private IdleSaver idle;
     private int prefsVersion = Prefs.version;   // settings changed while we were away: start over
@@ -57,6 +59,11 @@ public class HomeActivity extends Activity {
         }
         if (home != null) home.resume();
         if (idle != null) idle.resume();
+        if (idle != null && getIntent().getBooleanExtra(SAVER, false)) {
+            getIntent().removeExtra(SAVER);
+            idle.showNow();
+        }
+        HomeMode.checkKeys(this);
     }
 
     @Override protected void onPause() {
@@ -68,7 +75,12 @@ public class HomeActivity extends Activity {
     /** Home button pressed on the home screen: back to the entry state (focus on the first app, sheet closed). */
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
         if (home != null) home.reset(true);
+        if (idle != null && intent.getBooleanExtra(SAVER, false)) {
+            intent.removeExtra(SAVER);
+            idle.showNow();
+        }
     }
 
     @Override protected void onDestroy() {

@@ -60,17 +60,6 @@ final class Prefs {
         version++;
     }
 
-    // MARK: - TV name
-
-    static final String DEFAULT_TV_NAME = "arca TV";
-
-    static String tvName() {
-        String v = sp().getString("tvName", "").trim();
-        return v.isEmpty() ? DEFAULT_TV_NAME : v;
-    }
-
-    static void setTvName(String name) { put("tvName", name.trim()); }
-
     // MARK: - Widgets
 
     static boolean weather() { return sp().getBoolean("weather", true); }
@@ -104,6 +93,33 @@ final class Prefs {
 
     // MARK: - Continue watching
 
-    static String continueSource() { return sp().getString("continueSource", Config.JELLYFIN_URL.trim().isEmpty() ? "off" : "jellyfin"); }
+    static String continueSource() { return sp().getString("continueSource", "jellyfin"); }
     static void setContinueSource(String source) { put("continueSource", source); }
+
+    static String jellyfinUrl() { return sp().getString("jellyfinUrl", ""); }
+    static String jellyfinToken() { return sp().getString("jellyfinToken", ""); }
+    static String jellyfinUserId() { return sp().getString("jellyfinUserId", ""); }
+    static String jellyfinUser() { return sp().getString("jellyfinUser", ""); }
+    static String jellyfinServer() { return sp().getString("jellyfinServer", ""); }
+    static String jellyfinLast() { return sp().getString("jellyfinLast", ""); }
+
+    static String jellyfinDevice() {
+        String v = sp().getString("jellyfinDevice", "");
+        if (v.isEmpty()) {
+            v = java.util.UUID.randomUUID().toString();
+            put("jellyfinDevice", v);
+        }
+        return v;
+    }
+
+    static void setJellyfin(String url, String token, String userId, String user, String server) {
+        sp().edit().putString("jellyfinUrl", url).putString("jellyfinToken", token).putString("jellyfinUserId", userId)
+                .putString("jellyfinUser", user).putString("jellyfinServer", server).putString("jellyfinLast", url).putString("continueSource", "jellyfin").apply();
+        version++;
+    }
+
+    static void clearJellyfin() {
+        sp().edit().remove("jellyfinUrl").remove("jellyfinToken").remove("jellyfinUserId").remove("jellyfinUser").remove("jellyfinServer").apply();
+        version++;
+    }
 }

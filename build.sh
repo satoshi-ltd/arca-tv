@@ -26,7 +26,7 @@ command -v "$JAVAC" >/dev/null 2>&1 || { echo "JDK not found. Install JDK 17 and
 legacy() { grep -E "^[[:space:]]*$1[[:space:]]*=" config.properties | tail -1 | cut -d= -f2- | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true; }
 if [ ! -f config.yaml ] && [ -f config.properties ]; then
   {
-    printf 'city: "%s"\n\njellyfin:\n  url: "%s"\n  token: "%s"\n\n' "$(legacy city)" "$(legacy jellyfin_url)" "$(legacy jellyfin_token)"
+    printf 'city: "%s"\n\n' "$(legacy city)"
     printf 'domo:\n  url: "%s"\n  token: "%s"\n' "$(legacy domo_url)" "$(legacy domo_token)"
   } > config.yaml
   mv config.properties config.properties.bak
@@ -34,7 +34,7 @@ if [ ! -f config.yaml ] && [ -f config.properties ]; then
 fi
 if [ ! -f config.yaml ]; then
   cp config.example.yaml config.yaml
-  echo "Created config.yaml: add your city there (and, if you use them, your Jellyfin server and key, or your domo server address and key for arca house), then build again."
+  echo "Created config.yaml: add your city there (and, if you use it, your domo server address and key for arca house), then build again."
 fi
 cfg() {
   local v
@@ -66,8 +66,6 @@ final class Config {
     private Config() {}
 
     static final String CITY = "$(cfg city '')";
-    static final String JELLYFIN_URL = "$(cfg jellyfin.url '')";
-    static final String JELLYFIN_TOKEN = "$(cfg jellyfin.token '')";
     static final String DOMO_URL = "$(cfg domo.url '')";
     static final String DOMO_TOKEN = "$(cfg domo.token '')";
 }

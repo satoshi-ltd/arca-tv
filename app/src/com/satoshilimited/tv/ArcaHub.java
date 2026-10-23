@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -12,21 +13,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Inet4Address;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 final class ArcaHub {
     private ArcaHub() {}
@@ -93,58 +89,18 @@ final class ArcaHub {
         prefs(c).edit().clear().apply();
     }
 
-    static String deviceName(Context c) {
-        Prefs.init(c);
-        String name = Prefs.tvName();
-        return name.length() > 100 ? name.substring(0, 100) : name;
-    }
+    static final String DEFAULT_NAME = "arca TV";
 
-    static String localPrefix() {
-        try {
-            for (Enumeration<NetworkInterface> e = NetworkInterface.getNetworkInterfaces(); e != null && e.hasMoreElements(); ) {
-                NetworkInterface nif = e.nextElement();
-                if (!nif.isUp() || nif.isLoopback()) continue;
-                for (InetAddress a : Collections.list(nif.getInetAddresses())) {
-                    if (!(a instanceof Inet4Address) || !a.isSiteLocalAddress()) continue;
-                    String host = a.getHostAddress();
-                    return host.substring(0, host.lastIndexOf('.') + 1);
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return "";
+    static String deviceName(Context c) {
+        String name = Settings.Global.getString(c.getContentResolver(), Settings.Global.DEVICE_NAME);
+        name = name == null || name.trim().isEmpty() ? DEFAULT_NAME : name.trim();
+        return name.length() > 100 ? name.substring(0, 100) : name;
     }
 
     static void scan(Callback<List<Found>> callback) {
         IO.execute(() -> {
-            List<Found> found = Collections.synchronizedList(new ArrayList<>());
-            String prefix = localPrefix();
-            if (!prefix.isEmpty()) {
-                ExecutorService pool = Executors.newFixedThreadPool(48);
-                AtomicInteger left = new AtomicInteger(254);
-                Object done = new Object();
-                for (int i = 1; i <= 254; i++) {
-                    final String host = prefix + i;
-                    pool.execute(() -> {
-                        Found f = probeNow(host, 700);
-                        if (f != null) found.add(f);
-                        if (left.decrementAndGet() == 0) synchronized (done) { done.notifyAll(); }
-                    });
-                }
-                synchronized (done) {
-                    long until = System.currentTimeMillis() + 15_000;
-                    while (left.get() > 0 && System.currentTimeMillis() < until) {
-                        try {
-                            done.wait(300);
-                        } catch (InterruptedException e) {
-                            break;
-                        }
-                    }
-                }
-                pool.shutdownNow();
-            }
-            List<Found> result = new ArrayList<>(found);
-            Collections.sort(result, (a, b) -> a.name.compareToIgnoreCase(b.name));
+            List<Found> result = LanScan.run(LanScan.prefix(), host -> probeNow(host, 700));
+            Collections.sort(result, (x, y) -> x.name.compareToIgnoreCase(y.name));
             MAIN.post(() -> callback.done(result, null));
         });
     }

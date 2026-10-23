@@ -1,9 +1,5 @@
 city: ""
 
-jellyfin:
-  url: ""
-  token: ""
-
 domo:
   url: ""
   token: ""

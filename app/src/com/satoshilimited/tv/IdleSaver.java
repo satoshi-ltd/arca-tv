@@ -6,6 +6,7 @@ import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.FrameLayout;
+import java.util.function.BooleanSupplier;
 
 final class IdleSaver {
     static final long IDLE_MS = 60_000, FADE_IN_MS = 900, FADE_OUT_MS = 400;
@@ -14,10 +15,16 @@ final class IdleSaver {
     private final FrameLayout root;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable start = this::show;
+    private final BooleanSupplier held;
     private DreamView saver;
 
     IdleSaver(Activity activity, View content) {
+        this(activity, content, () -> false);
+    }
+
+    IdleSaver(Activity activity, View content, BooleanSupplier held) {
         this.activity = activity;
+        this.held = held;
         Prefs.init(activity);
         root = new FrameLayout(activity);
         root.addView(content);
@@ -48,6 +55,11 @@ final class IdleSaver {
         return false;
     }
 
+    void showNow() {
+        handler.removeCallbacks(start);
+        show();
+    }
+
     private void schedule() {
         handler.removeCallbacks(start);
         if (saver == null && Prefs.screensaver()) handler.postDelayed(start, IDLE_MS);
@@ -55,6 +67,10 @@ final class IdleSaver {
 
     private void show() {
         if (saver != null) return;
+        if (held.getAsBoolean()) {
+            schedule();
+            return;
+        }
         saver = new DreamView(activity);
         saver.setAlpha(0f);
         root.addView(saver, new FrameLayout.LayoutParams(-1, -1));
