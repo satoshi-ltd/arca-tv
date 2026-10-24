@@ -433,13 +433,15 @@ public class DomoActivity extends Activity {
             pills(c, POWER, inR - 20 * k, cy, live ? powerActive : -1, row == R_POWER ? col : -1, "power".equals(pending), tick);
             int modeActive = "mode".equals(pending) ? pendingIndex : modeIndex(d);
             cy = (rowTop(R_MODE) + Glass.ROW_H / 2) * k;
+            int modeSave = d.power ? -1 : c.saveLayerAlpha(rect.left, rect.top, rect.right, rect.bottom, 115);
             c.drawText("Mode", inL + 28 * k, cy + Ui.halfCap(label30), label30);
             pills(c, MODES, inR - 20 * k, cy, live ? modeActive : -1, row == R_MODE ? col : -1, "mode".equals(pending), tick);
-            boolean fanOn = live && favorite(d);
+            if (modeSave >= 0) c.restoreToCount(modeSave);
+            boolean fanOn = live && d.power && favorite(d);
             int save = fanOn ? -1 : c.saveLayerAlpha(rect.left, rect.top, rect.right, rect.bottom, 115);
             cy = (rowTop(R_FAN) + FAN_ROW_H / 2) * k;
             c.drawText("Fan", inL + 28 * k, cy - 6 * k, label30);
-            c.drawText(fanOn ? "0 to 14" : "Only in Favorite", inL + 28 * k, cy + 30 * k, sub24);
+            c.drawText(fanOn ? "0 to 14" : d.power ? "Only in Favorite" : "Turn it on first", inL + 28 * k, cy + 30 * k, sub24);
             drawFan(c, d, inR - 20 * k, cy, tick);
             if (save >= 0) c.restoreToCount(save);
             drawStatusLine(c, bottom, tick);
@@ -562,7 +564,7 @@ public class DomoActivity extends Activity {
 
         private boolean purifierUsable(ArcaDomo.Device d, int r) {
             if (!d.hasState) return false;
-            return r != R_FAN || favorite(d);
+            return r == R_POWER || d.power && (r != R_FAN || favorite(d));
         }
 
         private void clampDeviceFocus() {
@@ -741,7 +743,8 @@ public class DomoActivity extends Activity {
                 pending = null;
                 pendingIndex = -1;
                 if (error != null) {
-                    note = "rejected".equals(error) ? "The home server didn't accept this TV." : failure;
+                    note = "rejected".equals(error) ? "The home server didn't accept this TV."
+                        : ArcaDomo.IGNORED.equals(error) ? d.name + " didn't take the change." : failure;
                     noteUntil = SystemClock.elapsedRealtime() + 6_000;
                 }
                 clampDeviceFocus();

@@ -162,6 +162,8 @@ Troubleshooting:
 - `POST /api/devices/{id}/actions/{action}` (15 s timeout): `power {on}`, `mode {mode: auto|sleep|favorite}`,
   `fan {level: 0..14}`, `start`, `stop`, `dock`. It answers `{id, action, ok, state, error, age}`; the TV takes that
   state and does not poll again for it. 502 means the device did not answer.
+  For a purifier the TV compares what it asked for (`power`, `mode`, `fan_level`) with that state: a mismatch means the
+  purifier ignored it (`ArcaDomo.IGNORED`, "<name> didn't take the change."). Mode and fan are off while it is off.
 - Actions move real devices in the house. Never call them while testing without the maintainer.
 
 ## Product rules (settled; do not reopen without the maintainer)

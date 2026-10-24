@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.5
+
+- arca domo purifiers: after a change, the screen checks that the purifier took it (power, mode or fan). If it did not,
+  it says "<name> didn't take the change." and keeps the real state. Mode and fan are off while the purifier is off,
+  as it ignores them then.
+- Jellyfin Quick Connect: the screensaver no longer covers the code, Back while searching leaves no stray code behind,
+  a brief network error while waiting no longer cancels the code, and a TV name with accents or line breaks no longer
+  breaks the sign-in.
+- A colour button set to the screensaver now starts it when Home is already open.
+- The site deploys on every push to `main`.
+
 ## 1.0.4
 
 - Colour buttons: when the TV has a remote with red, green, yellow and blue keys, Settings gains a Colour buttons row.

@@ -27,6 +27,7 @@ final class ArcaDomo {
     static final String[] LEVELS = {"Excellent", "Good", "Light", "Moderate", "Heavy", "Severe"};
     static final int GREEN = 0xFF7FB893, AMBER = 0xFFE0A030, RED = 0xFFD9484A;
     private static final int LIST_TIMEOUT = 5_000, LIVE_TIMEOUT = 15_000;
+    static final String IGNORED = "ignored";
 
     interface Listener { void onDomo(); }
 
@@ -164,6 +165,7 @@ final class ArcaDomo {
                         shaped.put("error", JSONObject.NULL);
                         shaped.put("age", o.optDouble("age", 0));
                         updated = parse(shaped, SystemClock.elapsedRealtime());
+                        if (!applied(updated, action, body)) error = IGNORED;
                     } else {
                         error = o.optString("error", "no answer");
                     }
@@ -179,6 +181,16 @@ final class ArcaDomo {
                 notifyListeners();
             });
         });
+    }
+
+    private static boolean applied(Device d, String action, JSONObject body) {
+        if (body == null || !d.hasState || !d.purifier()) return true;
+        switch (action) {
+            case "power": return !body.has("on") || d.power == body.optBoolean("on");
+            case "mode": return !body.has("mode") || body.optString("mode").equals(d.mode);
+            case "fan": return !body.has("level") || d.fan == body.optInt("level");
+            default: return true;
+        }
     }
 
     private void replace(Device d) {
