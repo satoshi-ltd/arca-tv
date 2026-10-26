@@ -173,6 +173,11 @@ public class HubActivity extends Activity {
                 folders = err == null ? result : null;
                 buildRows();
                 invalidate();
+                if (folders != null) HubCounts.refresh(getContext(), () -> {
+                    if (state != CONNECTED) return;
+                    buildRows();
+                    invalidate();
+                });
             });
         }
 
@@ -258,7 +263,7 @@ public class HubActivity extends Activity {
                     p.focusable = false;
                     p.check = photos;
                     p.spinner = loadingFolders;
-                    p.value = loadingFolders ? "" : photos ? java.text.NumberFormat.getIntegerInstance().format(folders.photoCount) : "Not set up";
+                    p.value = loadingFolders ? "" : photos ? HubCounts.text(getContext(), "photos") : "Not set up";
                     p.dim = !photos;
                     rows.add(p);
                     Row m = new Row();
@@ -266,14 +271,23 @@ public class HubActivity extends Activity {
                     m.focusable = false;
                     m.check = music;
                     m.spinner = loadingFolders;
-                    m.value = loadingFolders || music ? "" : "Not set up";
+                    m.value = loadingFolders ? "" : music ? HubCounts.text(getContext(), "music") : "Not set up";
                     m.dim = !music;
                     rows.add(m);
+                    boolean video = folders != null && !folders.video.isEmpty();
+                    Row v = new Row();
+                    v.title = "Movies";
+                    v.focusable = false;
+                    v.check = video;
+                    v.spinner = loadingFolders;
+                    v.value = loadingFolders ? "" : video ? HubCounts.text(getContext(), "video") : "Not set up";
+                    v.dim = !video;
+                    rows.add(v);
                     addRow("Disconnect", "", true, () -> {
                         ArcaHub.disconnect(getContext());
                         activity.finish();
                     });
-                    focus = 2;
+                    focus = 3;
                     break;
                 }
                 default:

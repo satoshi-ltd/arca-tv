@@ -68,6 +68,8 @@ def logo_errors(root, name, entry):
         return [f"{name}: missing logos/{logo}"]
     if FORBIDDEN.search(path.read_text()):
         return [f"{name}: logos/{logo} contains forbidden content"]
+    if not 0.3 <= entry.get("width", 0.58) <= 0.9:
+        return [f"{name}: width must be between 0.3 and 0.9 of the tile"]
     if path.stat().st_size > 60_000:
         return [f"{name}: logos/{logo} is larger than 60 KB"]
     if blends_into_tint(path.read_text(), entry.get("brand", "")):

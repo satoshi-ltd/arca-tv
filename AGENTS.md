@@ -1,6 +1,6 @@
 # arca TV: notes for agents
 
-A home screen for Google TV and Android TV, plus the arca Photos and arca Music apps that read from an Arca hub. A plain
+A home screen for Google TV and Android TV, plus the arca Photos, arca Music and arca Movies apps that read from an Arca hub. A plain
 Android app in Java, built without Gradle by `build.sh`. See `README.md` for what it does; this file is how to work on it.
 
 Google TV and Android TV only. There is no LG or Samsung build; don't reintroduce one.
@@ -76,8 +76,6 @@ Troubleshooting:
   compiled into the APK. `config.example.yaml` lists the keys.
 - `*.keystore`, `*.idsig`, `*.apk` are git-ignored. Keep the keystore: updates must be signed with the same key.
 - The hub pairing token lives in the app's private `arca-hub` preferences. Never copy it out.
-- The Jellyfin sign-in (Quick Connect token, user and server address) lives in the app's private `settings` preferences, never in the APK
-  or `config.yaml`. Never print it.
 - No personal data in the repository: no real IP addresses, hub or TV names, library contents, photos or covers.
   Use placeholders such as `<TV_IP>` in docs.
 - The TV is real hardware. Do not change its system settings (picture, sound, network, screen timeout) except through
@@ -85,6 +83,12 @@ Troubleshooting:
 - The website deploys from `.github/workflows/publish-site.yml` on every push to `main`, or by manual
   dispatch. It needs the secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (Pages
   Edit) and the variables `CLOUDFLARE_PAGES_PROJECT_NAME` and `SITE_URL`; a missing one stops the run.
+- The website sells arca TV with the arca ecosystem: hero, With arca, Movies, Photos, Music, Home without a hub,
+  Install, FAQ. Every screen on it is an animated HTML copy of a Design board, never invented: the hero (`hero.mjs`)
+  and one demo per app in `site/demos/<name>.html` and `.css` (scoped under `.demo-<name>`, pure CSS keyframes,
+  paused off screen and by its Pause button, a static frame under reduced motion), pasted into `index.html`.
+  Watch next cards use the hub's real captions. The build writes the social meta, JSON-LD (app and FAQ), robots.txt
+  and sitemap.xml; the share image is `site/assets/og-image.jpg` (1200×630).
 
 ## The code
 
@@ -96,16 +100,11 @@ Troubleshooting:
   no obfuscation, and `out/mapping.txt` retraces inlined frames). Create the player only when a video plays, never on
   the home screen's start, and release it in `onStop` so another app gets the decoder and the memory back. Add nothing
   else without asking.
-- The app icon and the TV banner (`arca_icon.png`, `arca_banner.png` in `res/drawable-nodpi`) are muted grey (tile #444444,
-  arch #f2f2f2, door #bfbfbf), never green. Launchers keep icons by package and resource name: a new look needs new names.
+- The app icon and the TV banner (`arca_tv_icon.png`, `arca_tv_banner.png` in `res/drawable-nodpi`) are muted grey (tile #343434,
+  arch #f2f2f2, door #bfbfbf with a soft grey glow under it), never coloured; the lockup sits small in the banner (100 px mark, 62 px wordmark) and the arch at 74% of the icon, so Google TV's app gallery does not crop or crowd it. Each arca app is the same logo in its own colour (brand C2): a very dark tile with 16% of the app colour (photos #3a342f, music #342f3a, movies #3a2f30, domo #2f353a), a white arch and wordmark, and the door lit in the app colour with a soft glow beneath (Photos amber #c1a07b, Music violet #9c7bc1, Movies rose #c17b85, domo blue #7ba4c1); the logo shapes never change: its logo in `thumbnails/logos` and its `brand` and `width` (0.72 of the tile instead of 0.58) in `thumbnails.json`, the brand also tinting the Home backdrop when its tile is focused. Launchers keep icons by package and resource name: a new look needs new names.
 - With the arca screensaver on it is the only one: `HomeMode.ensureSaver` makes it the selected and the fallback dream and sets
   `screensaver_enabled` from the Screensaver row, and the dream services of system apps (`systemDreams`) are turned off, never those
   of third-party apps. *Original* restores the recorded values.
-- Jellyfin (Continue watching): `Settings → Continue watching` opens `JellyfinActivity`. `JellyfinLink` finds the server the way the
-  hub is found, with `LanScan` (254 addresses, `GET /System/Info/Public` on 8096; Jellyfin's own UDP broadcast does not reach a server
-  in Docker): first the address used last time, then the hub's address, then the scan, and "Enter address" if nothing answers. Then
-  Quick Connect: the TV shows the 6-digit code, polls every 3 s and signs in with `AuthenticateWithQuickConnect`. Not built yet: the
-  onboarding step and signing in with a password.
 - Three processes: the UI runs in `:home`; `HomeMode` and `ModeJob` switch the home screen from the main process;
   `HomeKeyService` runs in `:keys`, with no Watchdog, so a crash there never counts toward the revert.
   `Watchdog` returns to the stock home screen after three crashes in five minutes. Keep the way back working.
@@ -123,8 +122,12 @@ Troubleshooting:
   - `PhotoSlideshow` with a `PhotoSource` (`PhotoStream` random across the whole library, `LibrarySource` sequential
     from the explorer): the slideshow, the screensaver and the viewer, including video items (hash and video flag
     travel with each `PhotoStream.Photo`). `PhotoMotion` is the one drift/zoom used by all three.
-- Arca hub client: `ArcaHub` (discovery, pairing, `get`), `PhotoLibrary` (timeline, pages, thumbnail cache),
+- Arca hub client: `ArcaHub` (discovery, pairing, `get`, `post`), `PhotoLibrary` (timeline, pages, thumbnail cache),
   `MusicLibrary` (tracks, albums, artists, playlists, recent albums).
+- arca Movies: `VideoLibrary` (the parsed library, one cached JSON per volume in `cacheDir`, `&version` makes the next read
+  `unchanged`), `VideoArt` (posters, backdrops and stills, cached on disk by key), `HubMoviesActivity` (tabs, rows, grids, movie
+  and show pages), `VideoPlayer` (ExoPlayer, Bearer header, tracks, cues) with `VideoPlayerActivity` (controls, panel, Up next,
+  position saving) and `Watching` (the Home Watch next row, from the hub's video library).
 - arca domo: `ArcaDomo` (home-server client, polling, actions, the Home summary), `DomoActivity` (rooms, purifier
   and vacuum screens, every state), `Icons` (the stroke icons in `app/res/drawable/house_*.xml`, tinted and cached).
 
@@ -136,10 +139,10 @@ Troubleshooting:
   previews, music library, covers and blobs, plus its own machine report; every other route answers 403. A new hub
   route the TV needs must join the hub's player allow-list (`PLAYER_READS` in Arca's `packages/daemon/machines.js`).
 - Auth: `Authorization: Bearer <token>`. `POST /v1/machine-report` (`reportName`) sends the TV name, `app: "arca TV"`,
-  the app version (`x.y` padded to `x.y.0`) and `folderIds`, the photo and music folders it plays (only once paired as a
+  the app version (`x.y` padded to `x.y.0`) and `folderIds`, the photo, music and video folders it plays (only once paired as a
   player); it is sent after pairing, when the name changes, and whenever the catalog is read and the name, version or
   folders differ from the last report the hub accepted. A TV paired before players existed must pair again.
-- Catalog: `GET /v1/catalog` lists volumes; `gallery` and `music` booleans mark them.
+- Catalog: `GET /v1/catalog` lists volumes; `gallery`, `music` and `video` booleans mark them.
 - Photos: `GET /v1/gallery?volume=ID` returns the first page (60, newest first), `timeline` (per month `count`, `videos`)
   and `next`. `&month=YYYY-MM` seeks a month, `&after=<cursor>` continues. Previews:
   `GET /v1/gallery/preview?volume&path&hash&size=thumb|medium|large` returns `{"data":"data:image/jpeg;base64,..."}`.
@@ -150,6 +153,15 @@ Troubleshooting:
 - Music: `GET /v1/music/library?volume=ID` returns tracks (tags, `cover` key) and `playlists` (`.m3u8`, `entries` are
   folder-relative paths). Covers: `GET /v1/music/cover?volume&key&size=small|large` returns `{data}`. Audio streams
   from `GET /v1/blobs/<hash>` with a Bearer header and Range.
+- Video: `GET /v1/video/library?volume=ID[&version=V]` returns `movies`, `shows` (with `seasons[].episodes[]`), `other`,
+  `continue` and `nextUp` (item ids), `related` (up to 12 ids on movies and shows), `videoCodec` (415 from the hub means a codec outside h264, hevc, av1 and vp9: Close only, no compatible mode), `indexing` and `matching` (`false` or `{done,total}`) and `tmdb`; an item has the file
+  fields (`path`, `hash`, `duration`, `audioTracks`, `subtitles`, `position`, `watched`) when it plays. Art:
+  `GET /v1/video/art?volume&key&size=small|large` returns `{data}`, `{retry}` or `{unavailable}`. Playback:
+  `GET /v1/video/media?volume&path&hash` (Bearer header and Range, never the token in the URL), subtitles
+  `GET /v1/video/subtitles?volume&path` (WebVTT, side-loaded); embedded ones are asked for only when the user picks one in the subtitle list or it matches the remembered language, from `GET /v1/video/subtitles?volume&path&hash&stream=N&poll=1&format=json`: 202 `{preparing:true}` means the hub is extracting them (ask again every 3 s, up to about 30 min, without delaying the video: the player re-prepares with them when they arrive and selects the one asked for), 200 `{text}` is the WebVTT, 422 means unreadable (do not ask again for 10 minutes). `POST /v1/video/position {volume,path,hash,position,duration}`
+  every 10 s, on pause and on leaving answers `{kept,finished}`; `POST /v1/video/watched {volume,path,watched}`. The TV never
+  changes TMDB matches or the Kids mark, and does not transcode.
+- Video caches must reject results and retries from before Disconnect or a new pairing. Clearing the library also clears the Home Watch next row and pending artwork generations; image filenames retain the full hub key and disk trimming runs after writes. A late 401 may revoke only the credential used for that request. Position saves carry the library's original volume, never a later selection. Released players discard pending callbacks.
 - Recent albums are kept on the TV (`arca-music` preferences, last 12), not on the hub.
 
 ## arca domo protocol (as used by the TV)
@@ -168,12 +180,12 @@ Troubleshooting:
 
 ## Product rules (settled; do not reopen without the maintainer)
 
-- Dark neutral backgrounds always; colour only from the focused item. Geist only. Header lockup with a white tag
-  (`TV`, `PHOTOS`, `MUSIC`) and the level as the title; no city name.
+- Dark neutral backgrounds always; colour only from the focused item. Geist only. Header lockup: the white arch (never the coloured app icon: the backdrop already changes colour) and a white tag
+  (`TV`, `PHOTOS`, `MUSIC`, `MOVIES`, `DOMO`), and the level as the title; no city name.
 - Glass everywhere: fill white 10 %, border 1.5 px white 14 %, top highlight; focus = fill white 14 % plus a double ring
   (a translucent black 35 % gap, then white). The gap is translucent, not solid, so it never reads as a hard line over
   a photo or brand backdrop. Pills: inactive glass, active solid white.
-- Settings order: Home screen, Hub, Continue watching, Screensaver, Weather, Shortcuts, Colour buttons (only
+- Settings order: Home screen, Hub, Screensaver, Weather, Shortcuts, Colour buttons (only
   when a remote reports the four colour keys), Version. Each row has its
   family icon and a value that says what you get (Screensaver Photos/Colours/Off, Weather the city or Off, Shortcuts
   "4 of 5"), inside the same glass plate as Quick settings. The
@@ -187,6 +199,15 @@ Troubleshooting:
   Playlists (cover grid). "Shuffle all" (whole library, shuffled) is a pill at the end of the tab row; the
   first tile of an artist's album grid is "Shuffle" (that artist's tracks, shuffled). Artist to album to tracks; no
   separate artist page. Now playing has no queue.
+- Movies: tabs Home, Movies, TV Shows, Kids, Others (each only with content). Each list tab has a sort pill at the right of the tab row (A–Z, Recently added, Year, Rating; Others only the first two), sorted on the TV and remembered per tab in `video-ui`; the status text sits to its left. The backdrop is the focused title's backdrop (its poster when it has none, the show's for an episode), shown from the small image while the large one loads; with no art it is the Movies accent wash, never plain black. Posters show a ★ rating inside and nothing
+  underneath. Movie page: Resume (with the time) or Play, Start over, Mark as watched or unwatched, then a Related row (OK opens the title, never plays it; the page scrolls). On the 4K/5.1 badge row, a sound icon with the audio languages and a subtitles icon with the subtitle languages as outlined two-letter codes (two, then a muted `+N`; a group without languages is not drawn). Show page: Play, Start over, Mark as watched or unwatched for every episode, Related row below the episodes (the page scrolls), no poster, season pills (Specials
+  last), a glass list of episodes, hold OK marks watched. The player saves position every 10 s, on pause and on leaving,
+  shows Up next in the last 30 s of an episode, and remembers the audio and subtitle language per show.
+- Every section heading above a row or list (Watch next, Recently added, Kids picks, Related, On this day, month headings with their item count) is one style: Geist medium 32, sentence case, white, count beside it in regular 24 muted; 35 px from its baseline to the cards. Small captions inside plates (Settings groups, This TV, Inputs, player panel heads, NOW PLAYING) stay uppercase semibold 22, letter-spacing 0.11.
+- The Backdrop on a show page is the show's backdrop; while focus is on the episode cards it is the focused episode's still (the show's backdrop when it has none).
+- Movies Home rows share Home's look: 400×225 cards with the text over a gradient, the same section heading, 64 px from the heading top to the cards.
+- Watch next on Home comes only from arca Movies (the hub's video library); there is no Settings row for it. `VideoLibrary.watchingRow()` builds it for the launcher and for Movies Home from the hub's `watchNext` list in `GET /v1/video/library`, drawn as sent and never mixed with other lists: each entry is `{id, reason, title, caption, tag, art, progress}` (progress 0 to 100), reasons `resume`, `next`, `related`, `new`, `waiting` (others ignored); there is no fallback, without `watchNext` there is no row. The TV does not compute titles, second lines, chips, artwork or progress. `resume`: progress bar, plays at the saved position. `next`: a NEXT chip, no bar, plays from the start. `related`, `new` (a NEW chip) and `waiting`: no bar, OK opens the title's page (`Watching.Card.page`), only Details in the menu. The chip is `Ui.tag`: dark glass, uppercase semibold 18, 12 px from the card's left and 16 px from the top, so its text sits on the card's 24 px text line. Label on the row: "Watch next" (section heading style). Holding OK on a card opens `ContinueMenu` (Details opens the title's page in Movies, Back leaves it; Remove from Watch next, on every card, sends `POST /v1/video/watch-next/remove {volume, id}` with the entry's id and takes the card off at once, restoring it if the hub fails; the hub keeps the title off the row until it is played again and leaves its position and watched state alone). Layout: shortcuts plate 190 px tall, the label baseline at y 508 and cards at y 543. Jellyfin is a plain app: no code, no sign-in, no row; `Prefs.forgetJellyfin` wipes any old sign-in left by 1.0.x.
+- Player top (controls up or paused): show and season line, title and one meta line (`MetaLine`, shared with the title pages: ★ rating, outlined certification, year, runtime; for an episode the show's rating, certification and year with the episode's runtime), clock and `Ends at` (now plus time left) at the right, top shade 380 px tall.
 - Photos · On this day: when earlier years have photos for today, the explorer opens on an "ON THIS DAY" row above the
   newest month (up to four 4:3 cards, one tile row high: the year's first photo of the day, "October 22, 2023",
   "3 years ago · 3 photos"), from `GET /v1/gallery/memories?volume&day=MM-DD&year=YYYY`, re-read every time Photos

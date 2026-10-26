@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>arca TV · Your home, on the big screen.</title>
-<meta name="description" content="A calm home screen for Google TV and Android TV. Connect arca to bring your photos, videos and music to the big screen. Free for personal use, with no ads or account.">
+<title>arca TV · A calm home screen for Google TV with your movies, photos and music</title>
+<meta name="description" content="A calm home screen for Google TV and Android TV. Connect your arca hub to watch your movies and shows, browse your photos and play your music. Free for personal use, no ads, no account.">
 <meta name="theme-color" content="#0a0a0a">
 <meta name="color-scheme" content="dark">
 {{CANONICAL}}
-<meta property="og:type" content="website">
-<meta property="og:title" content="arca TV · Your home, on the big screen.">
-<meta property="og:description" content="A calm home screen for Google TV and Android TV. Connect arca and your photos, videos and music come with it.">
-<meta name="twitter:card" content="summary_large_image">
-{{SOCIAL_IMAGE}}
+<meta name="application-name" content="arca TV">
+<meta name="author" content="Satoshi Ltd.">
+{{SOCIAL}}
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+{{STRUCTURED_DATA}}
 <link rel="preload" href="assets/Geist.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="styles.css?v={{ASSET_VERSION}}">
 <link rel="stylesheet" href="hero.css?v={{ASSET_VERSION}}">
+<link rel="stylesheet" href="demos.css?v={{ASSET_VERSION}}">
 <script src="site.js?v={{ASSET_VERSION}}" defer></script>
 </head>
 <body>
@@ -30,24 +31,24 @@
 <section class="intro wrap" aria-labelledby="hero">
 <div class="intro-copy">
 <p class="kicker">For Google TV and Android TV</p>
-<h1 id="hero">Your home, on the big screen.</h1>
-<p class="lede">A calm home screen for the TV you already have. Connect arca to bring your photos, videos and music to the big screen.</p>
-<div class="actions"><a class="button solid" href="#install">Install arca TV</a><a class="text-link" href="#arca">Discover arca <span aria-hidden="true">↓</span></a></div>
-<p class="fine">Free for personal use · No ads · No account<br>Home works on its own. Add arca for photos and music.</p>
+<h1 id="hero">Your library, on the big screen.</h1>
+<p class="lede">A calm home screen for the TV you already have. Pair it with your arca hub and your own films, shows, photos and albums are a click away, with Watch next waiting on Home.</p>
+<div class="actions"><a class="button solid" href="#install">Install arca TV</a><a class="text-link" href="#arca">See what arca brings <span aria-hidden="true">↓</span></a></div>
+<p class="fine">Free for personal use · No ads · No account<br>Home works on its own. arca brings your library.</p>
 </div>
 <div class="intro-demo">
-<div id="home-demo" class="hero" role="img" aria-label="The arca TV home screen driven with a remote: focus starts on Continue watching, crosses the app shortcuts as the background takes each app's colour, opens All apps, comes back and rests on the weather">
+<div id="home-demo" class="hero" role="img" aria-label="The arca TV home screen driven with a remote: focus starts on Watch next, crosses the app shortcuts (Netflix, arca Movies, arca Photos, arca Music, YouTube) as the background takes each app's colour, opens All apps, comes back and rests on the weather">
 <div class="tv" aria-hidden="true">
 <div class="drift">
 <div class="layer film b-f0"><img src="assets/films/man-of-steel.jpg" alt=""></div>
 <div class="layer film b-f1"><img src="assets/films/rogue-one.jpg" alt=""></div>
-<div class="layer film b-f2"><img src="assets/films/blade-runner-2049.jpg" alt=""></div>
-<div class="layer film b-f3"><img src="assets/films/interstellar.jpg" alt=""></div>
-<div class="layer glow jellyfin b-g0"></div>
-<div class="layer glow netflix b-g1"></div>
-<div class="layer glow youtube b-g2"></div>
-<div class="layer glow appletv b-g3"></div>
-<div class="layer glow disneyplus b-g4"></div>
+<div class="layer film b-f2"><img src="assets/films/interstellar.jpg" alt=""></div>
+<div class="layer film b-f3"><img src="assets/films/blade-runner-2049.jpg" alt=""></div>
+<div class="layer glow netflix b-g0"></div>
+<div class="layer glow movies b-g1"></div>
+<div class="layer glow photos b-g2"></div>
+<div class="layer glow music b-g3"></div>
+<div class="layer glow youtube b-g4"></div>
 <div class="layer weather b-wx"></div>
 </div>
 
@@ -64,21 +65,21 @@
 </div>
 
 <div class="tv-row">
-<div class="tv-label">Continue watching</div>
+<div class="tv-label">Watch next</div>
 <div class="cards">
-<div class="card f-c0"><img src="assets/films/man-of-steel.jpg" alt=""><div class="card-text"><div class="card-title">Man of Steel</div><div class="card-sub">62 of 143 min</div></div><div class="progress"><div class="p43"></div></div></div>
-<div class="card f-c1"><img src="assets/films/rogue-one.jpg" alt=""><div class="card-text"><div class="card-title">Rogue One</div><div class="card-sub">88 of 133 min</div></div><div class="progress"><div class="p66"></div></div></div>
-<div class="card f-c2"><img src="assets/films/blade-runner-2049.jpg" alt=""><div class="card-text"><div class="card-title">Blade Runner 2049</div><div class="card-sub">35 of 164 min</div></div><div class="progress"><div class="p21"></div></div></div>
-<div class="card f-c3"><img src="assets/films/interstellar.jpg" alt=""><div class="card-text"><div class="card-title">Interstellar</div><div class="card-sub">9 of 169 min</div></div><div class="progress"><div class="p5"></div></div></div>
+<div class="card f-c0"><img src="assets/films/man-of-steel.jpg" alt=""><div class="card-text"><div class="card-title">Man of Steel</div><div class="card-sub">1 h 21 min left</div></div><div class="progress"><div class="p43"></div></div></div>
+<div class="card f-c1"><img src="assets/films/rogue-one.jpg" alt=""><div class="card-text"><div class="card-title">Rogue One</div><div class="card-sub">45 min left</div></div><div class="progress"><div class="p66"></div></div></div>
+<div class="card f-c2"><img src="assets/films/interstellar.jpg" alt=""><div class="card-text"><div class="card-title">Interstellar</div><div class="card-sub">Because you watched Man of Steel</div></div></div>
+<div class="card f-c3"><img src="assets/films/blade-runner-2049.jpg" alt=""><span class="card-tag">New</span><div class="card-text"><div class="card-title">Blade Runner 2049</div><div class="card-sub">Added this week</div></div></div>
 </div>
 </div>
 
 <div class="shelf">
-<div class="tile jellyfin f-t0"><img class="logo-wide" src="assets/apps/jellyfin.svg" alt=""></div>
-<div class="tile netflix f-t1"><img class="logo-netflix" src="assets/apps/netflix.svg" alt=""></div>
-<div class="tile youtube f-t2"><img class="logo-youtube" src="assets/apps/youtube.svg" alt=""></div>
-<div class="tile appletv f-t3"><img class="logo-appletv" src="assets/apps/appletv.svg" alt=""></div>
-<div class="tile disneyplus f-t4"><img class="logo-disneyplus" src="assets/apps/disneyplus.svg" alt=""></div>
+<div class="tile netflix f-t0"><img class="logo-netflix" src="assets/apps/netflix.svg" alt=""></div>
+<div class="tile movies f-t1"><img class="logo-arca" src="assets/apps/arcamovies.svg" alt=""></div>
+<div class="tile photos f-t2"><img class="logo-arca" src="assets/apps/arcaphotos.svg" alt=""></div>
+<div class="tile music f-t3"><img class="logo-arca" src="assets/apps/arcamusic.svg" alt=""></div>
+<div class="tile youtube f-t4"><img class="logo-youtube" src="assets/apps/youtube.svg" alt=""></div>
 <div class="tile all f-t5"><svg class="i46" viewBox="0 0 24 24"><path d="M4.5 4.5h5.5v5.5H4.5z M14 4.5h5.5v5.5H14z M4.5 14h5.5v5.5H4.5z M14 14h5.5v5.5H14z"/></svg></div>
 </div>
 
@@ -90,41 +91,248 @@
 </div>
 </section>
 
-<section id="home" class="block wrap" aria-labelledby="home-h">
-<div class="section-heading"><p class="eyebrow">Home screen · Works without a hub</p><h2 id="home-h">A quieter place<br>to turn the TV on.</h2><p class="section-lede">Your apps, the time and the weather. Add Jellyfin to continue what you were watching. No ads or recommendation rows added by arca TV.</p></div>
-<div class="feature-notes"><div class="glass"><h3>Keep the TV you know.</h3><p>Picture, sound and inputs stay close. Open your favourite apps from one shelf. Switch back through arca TV → Home screen → Original whenever you want.</p></div><div class="glass"><h3>Room for your home, too.</h3><p>With your own domo server, see the air in each room and control supported purifiers and your robot vacuum. Entirely optional.</p></div></div>
-<details class="more-screens glass"><summary>A closer look at the details<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><ul class="shots"><li><img src="screens/quick-settings.jpg" alt="Quick settings with Picture, Sound and TV inputs" width="1920" height="1080" loading="lazy"><h3>Your TV controls</h3></li><li><img src="screens/domo.jpg" alt="arca domo showing air readings for each room" width="1920" height="1080" loading="lazy"><h3>arca domo · Optional</h3></li><li><img src="screens/settings.jpg" alt="arca TV settings including Home screen and Hub" width="1920" height="1080" loading="lazy"><h3>A few simple settings</h3></li></ul></details>
-</section>
-
 <section id="arca" class="block wrap" aria-labelledby="arca-h">
 <div class="arca-panel">
 <div class="arca-copy">
-<p class="eyebrow arca-intro"><img src="assets/mark.svg" alt="" width="28" height="28">With arca</p>
-<h2 id="arca-h">Your library.<br>Now on your TV.</h2>
-<p class="section-lede">arca keeps your files on devices you own. Bring your photos and music together on a computer at home, then pair your TV to enjoy them from the sofa.</p>
-<p class="body-copy">A computer you already have can be your hub. Your TV plays from it without changing your library.</p>
+<p class="eyebrow arca-intro"><img decoding="async" loading="lazy" src="assets/mark.svg" alt="" width="28" height="28">With arca</p>
+<h2 id="arca-h">One library.<br>Every screen.</h2>
+<p class="section-lede">arca keeps your movies, photos and music on a computer you run at home: your hub. Your laptop and phone sync with it, and arca TV puts it all on the biggest screen in the house.</p>
+<p class="body-copy">Start a film on your laptop and finish it on the sofa. The photos from your phone are on the TV the same day. Your albums and playlists are where you left them. No subscriptions, no company server in the middle.</p>
 <a class="button solid" href="https://arca.satoshi-ltd.com">Meet arca <span aria-hidden="true">↗</span></a>
-<p class="arca-note">Photos, music and the photo screensaver need an arca hub, kept on while you play.</p>
+<p class="arca-note">Movies, photos, music and the photo screensaver need an arca hub, kept on while you play.</p>
 </div>
 <figure class="arca-library">
-<img src="screens/photos.jpg" alt="arca Photos showing On this day memories and the latest photos from the hub" width="1920" height="1080" loading="lazy">
+<img decoding="async" src="screens/photos.jpg" alt="arca Photos showing On this day memories and the latest photos from the hub" width="1920" height="1080" loading="lazy">
 
-<div class="library-links glass"><a href="#photos">Explore photos <span aria-hidden="true">↓</span></a><a href="#music">Explore music <span aria-hidden="true">↓</span></a></div>
+<div class="library-links glass"><a href="#movies">Explore movies <span aria-hidden="true">↓</span></a><a href="#photos">Explore photos <span aria-hidden="true">↓</span></a><a href="#music">Explore music <span aria-hidden="true">↓</span></a></div>
 <figcaption><span>Your arca hub <span aria-hidden="true">→</span> Your TV</span><span>Sample library</span></figcaption>
 </figure>
 </div>
-<details class="setup-details glass"><summary>Already have arca? Connect your TV.<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><ol><li>Keep your hub and TV on the same network. In the hub’s Settings → Local network, enable Allow HTTP connections. TV playback uses this local connection.</li><li>Link a phone album to a hub folder, or choose Enable gallery in an existing folder’s ⋯ menu for photos. For music, choose Enable music library in a hub folder’s ⋯ menu.</li><li>On the hub, open Settings → Authorized devices → Manage devices and generate a device pairing code. On the TV, open Settings → Hub; it finds the hub and opens the code screen. Enter the six digits, or choose Enter address if discovery finds nothing.</li><li>arca Photos and arca Music become available for the libraries your hub exposes. Keep the hub on while the TV plays them.</li></ol><p><a href="https://arca.satoshi-ltd.com/#setup">Starting from scratch? Set up your hub first →</a></p></details>
+<details class="setup-details glass"><summary>Already have arca? Connect your TV.<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><ol><li>Keep your hub and TV on the same network. In the hub’s Settings → Local network, enable Allow HTTP connections. TV playback uses this local connection.</li><li>Link a phone album to a hub folder, or choose Set up as library… → Photos in an existing folder’s ⋯ menu. For music, choose Set up as library… → Audio. For movies and shows, choose Set up as library… → Movies &amp; TV on a hub folder.</li><li>On the hub, open Settings → Authorized devices → Manage devices and generate a device pairing code. On the TV, open Settings → Hub; it finds the hub and opens the code screen. Enter the six digits, or choose Enter address if discovery finds nothing.</li><li>arca Movies, arca Photos and arca Music become available for the libraries your hub exposes, and Watch next appears on Home. Keep the hub on while the TV plays them.</li></ol><p><a href="https://arca.satoshi-ltd.com/#setup">Starting from scratch? Set up your hub first →</a></p></details>
+</section>
+
+<section id="movies" class="block wrap" aria-labelledby="movies-h">
+<div class="feature-split"><div><p class="eyebrow">Movies · With arca</p><h2 id="movies-h">Pick up where<br>you left off.</h2><p class="section-lede">The movies and series you already own, with posters, ratings, cast and the next episode waiting on Home.</p><p class="body-copy">Watch next follows you from laptop to phone to TV: what you started, the next episode of each show and what just arrived. Audio and subtitle tracks, resume where you stopped, and the next episode ready before the credits end.</p></div>
+<div class="demo-slot"><div id="movies-demo" class="demo demo-movies" role="img" aria-label="arca Movies driven with a remote: focus moves along Watch next as the background follows each card, opens Blade Runner 2049 with its rating, certification, year, runtime and Resume button, then shows the paused player with the title, clock and end time">
+<div class="tv" aria-hidden="true">
+<div class="mv-back mv-b0"><img decoding="async" loading="lazy" src="assets/demo/movies/man-of-steel-backdrop.jpg" alt=""></div>
+<div class="mv-back mv-b1"><img decoding="async" loading="lazy" src="assets/demo/movies/rogue-one-backdrop.jpg" alt=""></div>
+<div class="mv-back mv-b2"><img decoding="async" loading="lazy" src="assets/demo/movies/blade-runner-2049-backdrop.jpg" alt=""></div>
+<div class="mv-back mv-b3"><img decoding="async" loading="lazy" src="assets/demo/movies/interstellar-backdrop.jpg" alt=""></div>
+<div class="mv-back mv-b4"><img decoding="async" loading="lazy" src="assets/demo/movies/dune-backdrop.jpg" alt=""></div>
+<div class="mv-back mv-b5"><img decoding="async" loading="lazy" src="assets/demo/movies/arrival-backdrop.jpg" alt=""></div>
+<div class="mv-back mv-b6"><img decoding="async" loading="lazy" src="assets/demo/movies/inception-backdrop.jpg" alt=""></div>
+<div class="mv-home">
+<div class="mv-lockup"><svg class="mv-mark" viewBox="136 122 240 258"><path d="M136 380V242A120 120 0 0 1 376 242V380H308V242A52 52 0 0 0 204 242V380Z" fill="#f2f2f2"/><rect x="226" y="280" width="60" height="100" rx="4" fill="#ffffff" fill-opacity="0.4"/></svg><span>MOVIES</span></div>
+<div class="mv-date">Wednesday 21 October</div>
+<div class="mv-heading">Home</div>
+<div class="mv-clock">8:45<span>pm</span></div>
+<div class="mv-tabs"><span class="on">Home</span><span>Movies</span><span>TV Shows</span><span>Kids</span><span>Others</span></div>
+<div class="mv-row mv-row0">Watch next</div>
+<div class="mv-cards">
+<div class="mv-card mv-c0"><img decoding="async" loading="lazy" src="assets/films/man-of-steel.jpg" alt=""><div class="mv-card-title">Man of Steel</div><div class="mv-card-sub">1 h 21 min left</div><div class="mv-progress"><div class="mv-p43"></div></div></div>
+<div class="mv-card mv-c1"><img decoding="async" loading="lazy" src="assets/films/rogue-one.jpg" alt=""><span class="mv-tag">New</span><div class="mv-card-title">Rogue One</div><div class="mv-card-sub">Added this week</div></div>
+<div class="mv-card mv-c2"><img decoding="async" loading="lazy" src="assets/films/blade-runner-2049.jpg" alt=""><div class="mv-card-title">Blade Runner 2049</div><div class="mv-card-sub">55 min left</div><div class="mv-progress"><div class="mv-p67"></div></div></div>
+<div class="mv-card mv-c3"><img decoding="async" loading="lazy" src="assets/films/interstellar.jpg" alt=""><div class="mv-card-title">Interstellar</div><div class="mv-card-sub">Because you watched Blade Runner 2049</div></div>
+</div>
+<div class="mv-row mv-row1">Recently added</div>
+<div class="mv-posters">
+<div class="mv-poster mv-q0"><img decoding="async" loading="lazy" src="assets/demo/movies/dune.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>7.8</span></div>
+<div class="mv-poster mv-q1"><img decoding="async" loading="lazy" src="assets/demo/movies/arrival.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>7.6</span></div>
+<div class="mv-poster mv-q2"><img decoding="async" loading="lazy" src="assets/demo/movies/inception.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>8.4</span><span class="mv-seen"><svg class="mv-i22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></div>
+<div class="mv-poster"><img decoding="async" loading="lazy" src="assets/demo/movies/the-martian.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>7.7</span></div>
+<div class="mv-poster"><img decoding="async" loading="lazy" src="assets/demo/movies/mad-max-fury-road.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>7.6</span></div>
+<div class="mv-poster"><img decoding="async" loading="lazy" src="assets/demo/movies/gravity.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>7.2</span><span class="mv-seen"><svg class="mv-i22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></div>
+<div class="mv-poster"><img decoding="async" loading="lazy" src="assets/demo/movies/interstellar.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>8.5</span></div>
+<div class="mv-poster"><img decoding="async" loading="lazy" src="assets/demo/movies/rogue-one.jpg" alt=""><span class="mv-rating"><svg class="mv-i20 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg>7.5</span></div>
+</div>
+</div>
+<div class="mv-page">
+<div class="mv-lockup"><svg class="mv-mark" viewBox="136 122 240 258"><path d="M136 380V242A120 120 0 0 1 376 242V380H308V242A52 52 0 0 0 204 242V380Z" fill="#f2f2f2"/><rect x="226" y="280" width="60" height="100" rx="4" fill="#ffffff" fill-opacity="0.4"/></svg><span>MOVIES</span></div>
+<div class="mv-title">Blade Runner 2049</div>
+<div class="mv-meta"><svg class="mv-i24 mv-solid" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg><span class="mv-gap">7.6</span><span class="mv-sep">·</span><span class="mv-cert">R</span><span class="mv-sep">·</span>2017<span class="mv-sep">·</span>2 h 44 min</div>
+<div class="mv-genres">Science fiction · Drama · Mystery</div>
+<div class="mv-chips"><span class="mv-chip">4K</span><span class="mv-chip">5.1</span><span class="mv-langs"><svg class="mv-i26 mv-mute" viewBox="0 0 24 24"><path d="M3 12v0 M7 8v8 M11 5v14 M15 9v6 M19 11v2"/></svg><span class="mv-lang">EN</span><span class="mv-lang">ES</span><span class="mv-lang mv-more">+1</span></span><span class="mv-langs"><svg class="mv-i26 mv-mute" viewBox="0 0 24 24"><path d="M3 6h18v12H3z M7 11h3 M13 11h4 M7 14.5h6 M15 14.5h2"/></svg><span class="mv-lang">EN</span><span class="mv-lang">ES</span><span class="mv-lang mv-more">+3</span></span></div>
+<p class="mv-overview">Thirty years after the events of the first film, a new blade runner, LAPD Officer K, unearths a long-buried secret that has the potential to plunge what’s left of society into chaos.</p>
+<div class="mv-cast">Ryan Gosling · Harrison Ford · Ana de Armas · Sylvia Hoeks · Robin Wright</div>
+<div class="mv-buttons"><span class="mv-button on"><svg class="mv-i28" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>Resume<small>1:49:12</small></span><span class="mv-button"><svg class="mv-i28" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2 M4 4v5h5"/></svg>Start over</span><span class="mv-button"><svg class="mv-i28" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z M15 12a3 3 0 1 1-6 0a3 3 0 0 1 6 0z"/></svg>Mark as watched</span></div>
+<div class="mv-poster-big"><img decoding="async" loading="lazy" src="assets/demo/movies/blade-runner-2049.jpg" alt=""></div>
+</div>
+<div class="mv-player">
+<img decoding="async" loading="lazy" src="assets/demo/movies/blade-runner-2049-backdrop.jpg" alt="">
+<div class="mv-shade-top"></div><div class="mv-shade-bottom"></div>
+<div class="mv-line">2017</div>
+<div class="mv-ptitle">Blade Runner 2049</div>
+<div class="mv-pmeta"><svg class="mv-i24 mv-solid mv-ink" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9L3.4 9.8l6-.8z"/></svg><span class="mv-gap">7.6</span><span class="mv-sep">·</span><span class="mv-cert">R</span><span class="mv-sep">·</span>2017<span class="mv-sep">·</span>2 h 44 min</div>
+<div class="mv-pclock">8:45<span>pm</span></div>
+<div class="mv-ends">Ends at 9:40 pm</div>
+<div class="mv-bar"><div class="mv-bar-fill"></div><div class="mv-knob"></div></div>
+<div class="mv-time">1:49:12</div><div class="mv-left">−54:48</div>
+<div class="mv-round mv-rew"><svg class="mv-i40" viewBox="0 0 24 24"><path d="M11 7l-5 5 5 5 M18 7l-5 5 5 5"/></svg></div>
+<div class="mv-round mv-play"><svg class="mv-i44 mv-dark" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></div>
+<div class="mv-round mv-fwd"><svg class="mv-i40" viewBox="0 0 24 24"><path d="M13 7l5 5-5 5 M6 7l5 5-5 5"/></svg></div>
+<div class="mv-pchips"><span class="mv-pchip"><svg class="mv-i28" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z M16 8.5a5 5 0 0 1 0 7"/></svg>English 5.1</span><span class="mv-pchip"><svg class="mv-i28" viewBox="0 0 24 24"><path d="M3 6h18v12H3z M7 11h3 M13 11h4 M7 14.5h6 M15 14.5h2"/></svg>English</span></div>
+</div>
+</div></div>
+<div class="demo-caption"><p>Movies demo · Sample content</p><button class="pill glass" type="button" data-motion aria-pressed="false" aria-controls="movies-demo">Pause demo</button></div></div></div>
+<div class="feature-notes"><div class="glass"><h3>Watch next, on every screen.</h3><p>A NEXT chip marks the episode that comes after the one you finished, NEW marks what just arrived. Hold OK on a card to open its page or remove it from Watch next everywhere.</p></div><div class="glass"><h3>A player that stays out of the way.</h3><p>Choose audio and subtitles, skip ahead with the remote and see when the film will end. In the last seconds of an episode, the next one is ready.</p></div></div>
 </section>
 
 <section id="photos" class="block wrap" aria-labelledby="photos-h">
 <div class="section-heading"><p class="eyebrow">Photos &amp; memories · With arca</p><h2 id="photos-h">Some things deserve<br>a bigger screen.</h2><p class="section-lede">The holiday you still talk about. An ordinary afternoon you’d forgotten. Browse your photos and videos by month, or revisit this day in years gone by.</p></div>
-<figure class="wide-shot"><img src="screens/photo-viewer.jpg" alt="A photo filling the TV screen, with only its date in the corner" width="1920" height="1080" loading="lazy"><figcaption>Open a photo and let the slideshow wander. Press OK to stay a little longer.</figcaption></figure>
+<div class="demo-slot wide-shot"><div id="photos-demo" class="demo demo-photos" role="img" aria-label="arca Photos driven with a remote: focus moves along the On this day memories, steps down into the month grid as it scrolls from October to September, opens a photo full screen, the slideshow fades to the next photo, and Back returns to the grid"><div class="tv" aria-hidden="true">
+<div class="ph-layer ph-explorer">
+<div class="ph-drift">
+<div class="ph-bd ph-bd-sunset"><img decoding="async" loading="lazy" src="assets/demo/photos/sunset.jpg" alt=""></div>
+<div class="ph-bd ph-bd-hiker"><img decoding="async" loading="lazy" src="assets/demo/photos/hiker.jpg" alt=""></div>
+<div class="ph-bd ph-bd-road"><img decoding="async" loading="lazy" src="assets/demo/photos/road.jpg" alt=""></div>
+<div class="ph-bd ph-bd-dog-meadow"><img decoding="async" loading="lazy" src="assets/demo/photos/dog-meadow.jpg" alt=""></div>
+<div class="ph-bd ph-bd-city"><img decoding="async" loading="lazy" src="assets/demo/photos/city.jpg" alt=""></div>
+<div class="ph-bd ph-bd-dog-rocks"><img decoding="async" loading="lazy" src="assets/demo/photos/dog-rocks.jpg" alt=""></div>
+<div class="ph-bd ph-bd-van"><img decoding="async" loading="lazy" src="assets/demo/photos/van.jpg" alt=""></div>
+<div class="ph-bd ph-bd-cooking"><img decoding="async" loading="lazy" src="assets/demo/photos/cooking.jpg" alt=""></div>
+<div class="ph-bd ph-bd-street"><img decoding="async" loading="lazy" src="assets/demo/photos/street.jpg" alt=""></div>
+<div class="ph-scrim"></div></div>
+<svg class="ph-mark" viewBox="136 122 240 258"><path d="M136 380V242A120 120 0 0 1 376 242V380H308V242A52 52 0 0 0 204 242V380Z"/><rect x="226" y="280" width="60" height="100" rx="4"/></svg>
+<span class="ph-tag">PHOTOS</span>
+<span class="ph-date">Thursday 22 October</span>
+<span class="ph-title-photos">Photos</span>
+<span class="ph-title-oct">October 2026</span>
+<span class="ph-title-sep">September 2026</span>
+<span class="ph-clock">8:45<small>pm</small></span>
+<div class="ph-view"><div class="ph-scroll">
+<span class="ph-otd">On this day</span>
+<div class="ph-tile ph-t-m0"><img decoding="async" loading="lazy" src="assets/demo/photos/sunset.jpg" alt=""><span class="ph-shade"></span><span class="ph-mt">October 22, 2023</span><span class="ph-md">3 years ago · 3 photos</span><span class="ph-ring ph-r-m0"></span></div>
+<div class="ph-tile ph-t-m1"><img decoding="async" loading="lazy" src="assets/demo/photos/hiker.jpg" alt=""><span class="ph-shade"></span><span class="ph-mt">October 22, 2021</span><span class="ph-md">5 years ago · 12 photos</span><span class="ph-ring ph-r-m1"></span></div>
+<div class="ph-tile ph-t-m2"><img decoding="async" loading="lazy" src="assets/demo/photos/road.jpg" alt=""><span class="ph-shade"></span><span class="ph-mt">October 22, 2019</span><span class="ph-md">7 years ago · 1 photo</span><span class="ph-ring ph-r-m2"></span></div>
+<div class="ph-tile ph-t-m3"><img decoding="async" loading="lazy" src="assets/demo/photos/street.jpg" alt=""><span class="ph-shade"></span><span class="ph-mt">October 22, 2016</span><span class="ph-md">10 years ago · 6 photos</span><span class="ph-ring ph-r-m3"></span></div>
+<div class="ph-head ph-h-oct"><span class="ph-hl">October 2026</span><span class="ph-hc">12 items</span></div>
+<div class="ph-tile ph-t-o0"><img decoding="async" loading="lazy" src="assets/demo/photos/cake.jpg" alt=""></div>
+<div class="ph-tile ph-t-o1"><img decoding="async" loading="lazy" src="assets/demo/photos/beach.jpg" alt=""></div>
+<div class="ph-tile ph-t-o2"><img decoding="async" loading="lazy" src="assets/demo/photos/dog-meadow.jpg" alt=""><span class="ph-ring ph-r-o2"></span></div>
+<div class="ph-tile ph-t-o3"><img decoding="async" loading="lazy" src="assets/demo/photos/cooking.jpg" alt=""><span class="ph-ring ph-r-o3"></span></div>
+<div class="ph-tile ph-t-o4"><img decoding="async" loading="lazy" src="assets/demo/photos/balloons.jpg" alt=""><span class="ph-video"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg></span></div>
+<div class="ph-tile ph-t-o5"><img decoding="async" loading="lazy" src="assets/demo/photos/paella.jpg" alt=""></div>
+<div class="ph-tile ph-t-o6"><img decoding="async" loading="lazy" src="assets/demo/photos/lake.jpg" alt=""></div>
+<div class="ph-tile ph-t-o7"><img decoding="async" loading="lazy" src="assets/demo/photos/bricks.jpg" alt=""></div>
+<div class="ph-tile ph-t-o8"><img decoding="async" loading="lazy" src="assets/demo/photos/city.jpg" alt=""><span class="ph-ring ph-r-o8"></span></div>
+<div class="ph-tile ph-t-o9"><img decoding="async" loading="lazy" src="assets/demo/photos/van.jpg" alt=""><span class="ph-ring ph-r-o9"></span></div>
+<div class="ph-tile ph-t-o10"><img decoding="async" loading="lazy" src="assets/demo/photos/valley.jpg" alt=""></div>
+<div class="ph-tile ph-t-o11"><img decoding="async" loading="lazy" src="assets/demo/photos/park.jpg" alt=""></div>
+<div class="ph-head ph-h-sep"><span class="ph-hl">September 2026</span><span class="ph-hc">5 items</span></div>
+<div class="ph-tile ph-t-s0"><img decoding="async" loading="lazy" src="assets/demo/photos/road.jpg" alt=""></div>
+<div class="ph-tile ph-t-s1"><img decoding="async" loading="lazy" src="assets/demo/photos/street.jpg" alt=""></div>
+<div class="ph-tile ph-t-s2"><img decoding="async" loading="lazy" src="assets/demo/photos/hiker.jpg" alt=""><span class="ph-ring ph-r-s2"></span></div>
+<div class="ph-tile ph-t-s3"><img decoding="async" loading="lazy" src="assets/demo/photos/dog-rocks.jpg" alt=""><span class="ph-ring ph-r-s3"></span></div>
+<div class="ph-tile ph-t-s4"><img decoding="async" loading="lazy" src="assets/demo/photos/sunset.jpg" alt=""></div>
+</div></div>
+<div class="ph-rail">
+<div class="ph-years">
+<span class="ph-y2026">2026</span>
+<span class="ph-dot ph-d2026"></span>
+<span class="ph-y2024">2024</span>
+<span class="ph-dot ph-d2024"></span>
+<span class="ph-y2022">2022</span>
+<span class="ph-dot ph-d2022"></span>
+<span class="ph-y2020">2020</span>
+<span class="ph-dot ph-d2020"></span>
+<span class="ph-y2019">2019</span>
+<span class="ph-dot ph-d2019"></span>
+<span class="ph-y2018">2018</span>
+<span class="ph-dot ph-d2018"></span>
+<span class="ph-y2016">2016</span>
+<span class="ph-dot ph-d2016"></span>
+<span class="ph-y2014">2014</span>
+<span class="ph-dot ph-d2014"></span>
+<span class="ph-y2012">2012</span>
+<span class="ph-dot ph-d2012"></span>
+</div>
+<div class="ph-current"><span class="ph-ycur">2026</span><span class="ph-dcur"></span></div>
+<span class="ph-track"></span><span class="ph-marker"></span></div>
+</div>
+<div class="ph-layer ph-viewer">
+<img decoding="async" loading="lazy" class="ph-photo ph-v-p1" src="assets/demo/photos/dog-rocks-large.jpg" alt="">
+<img decoding="async" loading="lazy" class="ph-photo ph-v-p2" src="assets/demo/photos/sunset-large.jpg" alt="">
+<span class="ph-vshade"></span>
+<span class="ph-vd-p1">14 September 2026</span>
+<span class="ph-vd-p2">9 September 2026</span>
+</div>
+</div></div>
+<div class="demo-caption"><p>Photos demo · Sample content</p><button class="pill glass" type="button" data-motion aria-pressed="false" aria-controls="photos-demo">Pause demo</button></div></div>
 <div class="feature-notes"><div class="glass"><h3>A way back through the years.</h3><p>One continuous timeline, with a year scrubber and On this day memories when your library has them. Videos play right in the viewer.</p></div><div class="glass"><h3>A screen worth leaving on.</h3><p>When arca TV rests, your photos become a gently moving screensaver, mixing years from across your library. It dims itself at night.</p></div></div>
 </section>
 
 <section id="music" class="block wrap feature-split" aria-labelledby="music-h">
 <div><p class="eyebrow">Music · With arca</p><h2 id="music-h">Put an album on.<br>Settle in.</h2><p class="section-lede">Your artists, your albums, your playlists. Pick up a recent favourite or shuffle your library, all with the TV remote.</p><p class="body-copy">Music streams from your arca hub. The cover fills the player while you listen. No recommendations to get through before you reach your own collection.</p></div>
-<figure class="product-shot"><img src="screens/music.jpg" alt="Artist list beside the focused artist’s albums and Shuffle tile" width="1920" height="1080" loading="lazy"><figcaption>Artists and their albums, side by side.</figcaption></figure>
+<div class="demo-slot"><div id="music-demo" class="demo demo-music" role="img" aria-label="arca Music driven with a remote: focus moves through the artists while their albums change beside them, opens the album Rumours, plays Dreams and shows it in the Now playing screen">
+<div class="tv" aria-hidden="true">
+<div class="mu-bd mu-bd-lp"><img decoding="async" loading="lazy" src="assets/demo/music/hybrid-theory.jpg" alt=""></div>
+<div class="mu-bd mu-bd-fm"><img decoding="async" loading="lazy" src="assets/demo/music/rumours.jpg" alt=""></div>
+<div class="mu-bd mu-bd-ds"><img decoding="async" loading="lazy" src="assets/demo/music/brothers-in-arms.jpg" alt=""></div>
+<div class="mu-shade"></div>
+<div class="mu-screen mu-lib">
+<div class="mu-lockup"><svg class="mu-mark" viewBox="136 122 240 258"><path d="M136 380V242A120 120 0 0 1 376 242V380H308V242A52 52 0 0 0 204 242V380Z" fill="#f2f2f2"/><rect x="226" y="280" width="60" height="100" rx="4" fill="#ffffff" fill-opacity="0.4"/></svg><span>MUSIC</span></div><div class="mu-date">Wednesday 21 October</div><div class="mu-title">Artists</div><div class="mu-clock">8:45<span>pm</span></div>
+<div class="mu-tabs"><span class="mu-tab">Recent</span><span class="mu-tab mu-active">Artists</span><span class="mu-tab">Playlists</span><span class="mu-divider"></span><span class="mu-tab mu-shuffle-all"><svg viewBox="0 0 24 24"><path d="M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5"/></svg>Shuffle all</span></div>
+<div class="mu-plate mu-artists"></div>
+<div class="mu-row mu-arow mu-ar0"><img decoding="async" loading="lazy" src="assets/demo/music/let-it-be.jpg" alt=""><span class="mu-name">The Beatles</span><span class="mu-val">4 albums</span></div>
+<div class="mu-row mu-arow mu-ar1"><div class="mu-hl mu-focus mu-af-ds"></div><img decoding="async" loading="lazy" src="assets/demo/music/brothers-in-arms.jpg" alt=""><span class="mu-name">Dire Straits</span><span class="mu-val">1 album</span></div>
+<div class="mu-row mu-arow mu-ar2"><div class="mu-hl mu-fill-fm"></div><div class="mu-hl mu-focus mu-af-fm"></div><img decoding="async" loading="lazy" src="assets/demo/music/rumours.jpg" alt=""><span class="mu-name">Fleetwood Mac</span><span class="mu-val">1 album</span></div>
+<div class="mu-row mu-arow mu-ar3"><div class="mu-hl mu-focus mu-af-lp"></div><img decoding="async" loading="lazy" src="assets/demo/music/hybrid-theory.jpg" alt=""><span class="mu-name">Linkin Park</span><span class="mu-val">8 albums</span></div>
+<div class="mu-row mu-arow mu-ar4"><img decoding="async" loading="lazy" src="assets/demo/music/nevermind.jpg" alt=""><span class="mu-name">Nirvana</span><span class="mu-val">3 albums</span></div>
+<div class="mu-row mu-arow mu-ar5"><img decoding="async" loading="lazy" src="assets/demo/music/night-at-the-opera.jpg" alt=""><span class="mu-name">Queen</span><span class="mu-val">5 albums</span></div>
+<div class="mu-row mu-arow mu-ar6"><img decoding="async" loading="lazy" src="assets/demo/music/automatic.jpg" alt=""><span class="mu-name">R.E.M.</span><span class="mu-val">3 albums</span></div>
+<div class="mu-grid mu-g-lp"><div class="mu-heading">Linkin Park<span> · 8 albums · 99 tracks</span></div>
+<div class="mu-tile mu-c0"><div class="mu-shuffle"><svg viewBox="0 0 24 24"><path d="M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5"/></svg></div><span class="mu-tname mu-center">Shuffle</span></div>
+<div class="mu-tile mu-c1"><img decoding="async" loading="lazy" src="assets/demo/music/from-zero.jpg" alt=""><span class="mu-tname">From Zero</span></div>
+<div class="mu-tile mu-c2"><img decoding="async" loading="lazy" src="assets/demo/music/one-more-light.jpg" alt=""><span class="mu-tname">One More Light</span></div>
+<div class="mu-tile mu-c3"><img decoding="async" loading="lazy" src="assets/demo/music/hunting-party.jpg" alt=""><span class="mu-tname">The Hunting Party</span></div>
+<div class="mu-tile mu-c4"><img decoding="async" loading="lazy" src="assets/demo/music/living-things.jpg" alt=""><span class="mu-tname">LIVING THINGS</span></div>
+<div class="mu-tile mu-c5"><img decoding="async" loading="lazy" src="assets/demo/music/thousand-suns.jpg" alt=""><span class="mu-tname">A Thousand Suns</span></div>
+<div class="mu-tile mu-c6"><img decoding="async" loading="lazy" src="assets/demo/music/minutes-to-midnight.jpg" alt=""><span class="mu-tname">Minutes to Midnight</span></div>
+<div class="mu-tile mu-c7"><img decoding="async" loading="lazy" src="assets/demo/music/meteora.jpg" alt=""><span class="mu-tname">Meteora</span></div>
+</div>
+<div class="mu-grid mu-g-fm"><div class="mu-heading">Fleetwood Mac<span> · 1 album · 11 tracks</span></div>
+<div class="mu-tile mu-c0"><div class="mu-shuffle"><svg viewBox="0 0 24 24"><path d="M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5"/></svg></div><div class="mu-tring mu-tr-shuffle"></div><span class="mu-tname mu-center">Shuffle</span></div>
+<div class="mu-tile mu-c1"><img decoding="async" loading="lazy" src="assets/demo/music/rumours.jpg" alt=""><div class="mu-tring mu-tr-rumours"></div><span class="mu-tname">Rumours</span></div>
+</div>
+<div class="mu-grid mu-g-ds"><div class="mu-heading">Dire Straits<span> · 1 album · 9 tracks</span></div>
+<div class="mu-tile mu-c0"><div class="mu-shuffle"><svg viewBox="0 0 24 24"><path d="M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5"/></svg></div><span class="mu-tname mu-center">Shuffle</span></div>
+<div class="mu-tile mu-c1"><img decoding="async" loading="lazy" src="assets/demo/music/brothers-in-arms.jpg" alt=""><span class="mu-tname">Brothers in Arms</span></div>
+</div>
+</div>
+<div class="mu-screen mu-album">
+<div class="mu-lockup"><svg class="mu-mark" viewBox="136 122 240 258"><path d="M136 380V242A120 120 0 0 1 376 242V380H308V242A52 52 0 0 0 204 242V380Z" fill="#f2f2f2"/><rect x="226" y="280" width="60" height="100" rx="4" fill="#ffffff" fill-opacity="0.4"/></svg><span>MUSIC</span></div><div class="mu-date">Wednesday 21 October</div><div class="mu-title">Rumours</div><div class="mu-clock">8:45<span>pm</span></div>
+<img decoding="async" loading="lazy" class="mu-album-cover" src="assets/demo/music/rumours.jpg" alt="">
+<div class="mu-album-title">Rumours</div><div class="mu-album-by">Fleetwood Mac · 1977</div><div class="mu-album-count">11 tracks · 39 min</div>
+<div class="mu-plate mu-tracks"></div>
+<div class="mu-row mu-trow mu-tr0"><div class="mu-hl mu-focus mu-tf-0"></div><span class="mu-num">1</span><span class="mu-name">Second Hand News</span><span class="mu-val">2:43</span></div>
+<div class="mu-row mu-trow mu-tr1"><div class="mu-hl mu-focus mu-tf-1"></div><span class="mu-num">2</span><span class="mu-name">Dreams</span><span class="mu-val">4:14</span></div>
+<div class="mu-row mu-trow mu-tr2"><span class="mu-num">3</span><span class="mu-name">Never Going Back Again</span><span class="mu-val">2:02</span></div>
+<div class="mu-row mu-trow mu-tr3"><span class="mu-num">4</span><span class="mu-name">Don’t Stop</span><span class="mu-val">3:11</span></div>
+<div class="mu-row mu-trow mu-tr4"><span class="mu-num">5</span><span class="mu-name">Go Your Own Way</span><span class="mu-val">3:38</span></div>
+<div class="mu-row mu-trow mu-tr5"><span class="mu-num">6</span><span class="mu-name">Songbird</span><span class="mu-val">3:20</span></div>
+<div class="mu-row mu-trow mu-tr6"><span class="mu-num">7</span><span class="mu-name">The Chain</span><span class="mu-val">4:28</span></div>
+<div class="mu-row mu-trow mu-tr7"><span class="mu-num">8</span><span class="mu-name">You Make Loving Fun</span><span class="mu-val">3:31</span></div>
+</div>
+<div class="mu-screen mu-now">
+<div class="mu-lockup"><svg class="mu-mark" viewBox="136 122 240 258"><path d="M136 380V242A120 120 0 0 1 376 242V380H308V242A52 52 0 0 0 204 242V380Z" fill="#f2f2f2"/><rect x="226" y="280" width="60" height="100" rx="4" fill="#ffffff" fill-opacity="0.4"/></svg><span>MUSIC</span></div>
+<img decoding="async" loading="lazy" class="mu-now-cover" src="assets/demo/music/rumours-large.jpg" alt="">
+<div class="mu-now-label">NOW PLAYING</div><div class="mu-now-title">Dreams</div><div class="mu-now-artist">Fleetwood Mac</div><div class="mu-now-album">Rumours</div>
+<div class="mu-bar"><div class="mu-bar-fill"></div></div>
+<div class="mu-elapsed"><span class="mu-e0">1:13</span><span class="mu-e1">1:14</span><span class="mu-e2">1:15</span><span class="mu-e3">1:16</span><span class="mu-e4">1:17</span><span class="mu-e5">1:18</span></div><div class="mu-total">4:14</div>
+<div class="mu-btn mu-prev"><svg viewBox="0 0 24 24"><path d="M6 5v14 M19 5v14l-10-7z"/></svg></div>
+<div class="mu-btn mu-play"><svg viewBox="0 0 24 24"><path d="M8 5v14 M16 5v14"/></svg></div>
+<div class="mu-btn mu-next"><svg viewBox="0 0 24 24"><path d="M18 5v14 M5 5v14l10-7z"/></svg></div>
+</div>
+</div>
+</div>
+<div class="demo-caption"><p>Music demo · Sample content</p><button class="pill glass" type="button" data-motion aria-pressed="false" aria-controls="music-demo">Pause demo</button></div></div>
+</section>
+
+<section id="home" class="block wrap" aria-labelledby="home-h">
+<div class="section-heading"><p class="eyebrow">Home screen · Works without a hub</p><h2 id="home-h">A quieter place<br>to turn the TV on.</h2><p class="section-lede">Your apps, the time and the weather. Connect your arca hub and Watch next picks up your movies and shows where you left off. No ads or recommendation rows from anyone else.</p></div>
+<div class="feature-notes"><div class="glass"><h3>Keep the TV you know.</h3><p>Picture, sound and inputs stay close. Open your favourite apps from one shelf. Switch back through arca TV → Home screen → Original whenever you want.</p></div><div class="glass"><h3>Room for your home, too.</h3><p>With your own domo server, see the air in each room and control supported purifiers and your robot vacuum. Entirely optional.</p></div></div>
+<details class="more-screens glass"><summary>A closer look at the details<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><ul class="shots"><li><img decoding="async" src="screens/quick-settings.jpg" alt="Quick settings with Picture, Sound and TV inputs" width="1920" height="1080" loading="lazy"><h3>Your TV controls</h3></li><li><img decoding="async" src="screens/domo.jpg" alt="arca domo showing air readings for each room" width="1920" height="1080" loading="lazy"><h3>arca domo · Optional</h3></li><li><img decoding="async" src="screens/settings.jpg" alt="arca TV settings including Home screen and Hub" width="1920" height="1080" loading="lazy"><h3>A few simple settings</h3></li></ul></details>
 </section>
 
 <section id="install" class="block wrap" aria-labelledby="install-h">
@@ -158,16 +366,17 @@ adb -s &lt;TV_IP&gt;:5555 install -r ArcaTV.apk</pre><p class="small">When the T
 </section>
 
 
-<section id="faq" class="block wrap" aria-labelledby="faq-h"><div class="split faq"><div><p class="eyebrow">Before you start</p><h2 id="faq-h">A few good<br>questions.</h2></div><div class="questions"><details class="glass"><summary>Do I need an arca hub?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>Home, your apps and the weather work without one. Connect a hub with a photo or music library to use arca Photos, arca Music and your photos as a screensaver. The TV streams from the hub, so keep it on and reachable while you watch or listen.</p></details>
+<section id="faq" class="block wrap" aria-labelledby="faq-h"><div class="split faq"><div><p class="eyebrow">Before you start</p><h2 id="faq-h">A few good<br>questions.</h2></div><div class="questions"><details class="glass"><summary>Do I need an arca hub?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>Home, your apps and the weather work without one. Connect a hub with a movie, photo or music library to use arca Movies, Watch next, arca Photos, arca Music and your photos as a screensaver. The TV streams from the hub, so keep it on and reachable while you watch or listen.</p></details>
 <details class="glass"><summary>What do I need to run arca?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>A computer or server you control can be your hub; dedicated hardware is optional. arca keeps shared folders and their history there and syncs complete copies to your other devices. The TV is a player: it reads the library without changing your files.</p><p class="faq-action"><a href="https://arca.satoshi-ltd.com/#setup">See how to set up arca <span aria-hidden="true">→</span></a></p></details>
 <details class="glass"><summary>What changes on my TV?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>arca TV becomes your home screen and screensaver and disables selected built-in apps. It does not uninstall them or require root. Choose arca TV → Home screen → Original to restore the recorded home screen and re-enable apps it disabled. After repeated crashes, a watchdog attempts the same recovery.</p></details>
-<details class="glass"><summary>Does anything leave my home?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>Your photos and music stream directly from your hub over your network. Weather and outdoor air requests send your selected city’s coordinates to Open-Meteo; city searches send the name you enter. Like any online request, these expose your public IP to the service. arca TV adds no analytics. Android TV and the apps you open have their own network activity and privacy policies.</p></details>
+<details class="glass"><summary>Does anything leave my home?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>Your movies, photos and music stream directly from your hub over your network. Weather and outdoor air requests send your selected city’s coordinates to Open-Meteo; city searches send the name you enter. Like any online request, these expose your public IP to the service. arca TV adds no analytics. Android TV and the apps you open have their own network activity and privacy policies.</p></details>
+<details class="glass"><summary>Will it play all my videos?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>arca TV plays the files from your hub as they are, with their audio tracks and subtitles. When the TV cannot play a file’s audio, the hub offers a compatible audio track; the picture is never re-encoded, so a video format the TV cannot decode will not play.</p></details>
 <details class="glass"><summary>Which TVs does it support?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>arca TV targets Google TV and Android TV with Android 9 or newer. Installation needs debugging access; menus and manufacturer restrictions vary. It does not run on LG webOS or Samsung Tizen.</p></details>
 <details class="glass"><summary>Is it free?<svg class="i20 chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><p>Free for personal, non-commercial use under the <a href="https://github.com/satoshi-ltd/arca-tv/blob/main/LICENSE">PolyForm Strict licence</a>.</p></details></div>
 </div>
 </section>
 </main>
-<footer class="foot"><div class="wrap"><div class="foot-row"><a class="lockup small" href="#top" aria-label="arca TV home"><img class="mark" src="assets/mark.svg" alt="" width="30" height="30"><span class="word"><b>arca</b><span> tv</span></span></a><nav class="foot-links" aria-label="Footer"><a href="https://arca.satoshi-ltd.com">Discover arca</a><a href="https://github.com/satoshi-ltd/arca-tv">GitHub &amp; docs</a><a href="https://github.com/satoshi-ltd/arca-tv/blob/main/LICENSE">Licence</a></nav></div><p class="foot-text">Free for personal, non-commercial use under the PolyForm Strict licence. This site uses no cookies or analytics.</p><p class="foot-fine">Not affiliated with Google. App names and logos belong to their owners. All screens show sample content.</p></div></footer>
+<footer class="foot"><div class="wrap"><div class="foot-row"><a class="lockup small" href="#top" aria-label="arca TV home"><img decoding="async" loading="lazy" class="mark" src="assets/mark.svg" alt="" width="30" height="30"><span class="word"><b>arca</b><span> tv</span></span></a><nav class="foot-links" aria-label="Footer"><a href="https://arca.satoshi-ltd.com">Discover arca</a><a href="https://github.com/satoshi-ltd/arca-tv">GitHub &amp; docs</a><a href="https://github.com/satoshi-ltd/arca-tv/blob/main/LICENSE">Licence</a></nav></div><p class="foot-text">Free for personal, non-commercial use under the PolyForm Strict licence. This site uses no cookies or analytics.</p><p class="foot-fine">Not affiliated with Google. App names and logos belong to their owners. All screens show sample content.</p></div></footer>
 </div>
 </body>
 </html>

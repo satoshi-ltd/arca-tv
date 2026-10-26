@@ -40,7 +40,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-final class HomeView extends View implements Choreographer.FrameCallback, HomeData.Listener, Jellyfin.Listener, ArcaDomo.Listener {
+final class HomeView extends View implements Choreographer.FrameCallback, HomeData.Listener, Watching.Listener, ArcaDomo.Listener {
     private static final int Z_CARDS = 0, Z_RAIL = 1, Z_PANEL = 2, Z_SHEET = 3, Z_WEATHER = 4;
     private static final int G_CARD = 1, G_RAIL = 2, G_LEFT = 3, G_RIGHT = 4, G_GRID = 5, G_WEATHER = 6;
     private static final int BG_TOP = 0xFF141414, BG_MID = 0xFF0E0E0E, BG_BOTTOM = 0xFF0A0A0A;
@@ -60,8 +60,8 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
     private static final int[] DEFAULT_STYLE = {0xFF1C1C1E, 0xFF09090A, 0};
     private final android.graphics.PorterDuffColorFilter whiteLogo = new android.graphics.PorterDuffColorFilter(0xFFFFFFFF, android.graphics.PorterDuff.Mode.SRC_IN);
-    private static final float CARD_W = 400, CARD_H = 225, CARD_GAP = 32, CARD_TOP = 430, CARD_RADIUS = 28;
-    private static final float RAIL_L = 112, RAIL_T = 746, RAIL_R = 1808, RAIL_B = 1006, RAIL_PAD = 48, TILE_W = 232, TILE_FOCUS = 1.1f, TILE_RADIUS = 24;
+    private static final float CARD_W = 400, CARD_H = 225, CARD_GAP = 32, CARD_TOP = 543, CARD_RADIUS = 28;
+    private static final float RAIL_L = 112, RAIL_T = 816, RAIL_R = 1808, RAIL_B = 1006, RAIL_PAD = 36, TILE_W = 232, TILE_FOCUS = 1.1f, TILE_RADIUS = 24;
     private static final int GRID_COLUMNS = 5, GRID_VISIBLE_ROWS = 3;
     private static final float GRID_TOP = 260, GRID_ROW = 209, GRID_W = 307, GRID_H = 169;
     private static final float PANEL_TOP = 260, LEFT_L = 112, LEFT_R = 1216, RIGHT_L = 1248, RIGHT_R = 1808;
@@ -83,7 +83,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
 
     private final Activity activity;
     private final HomeData data;
-    private final Jellyfin jellyfin;
+    private final Watching watching;
     private final Click click;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final SharedPreferences ui;
@@ -97,6 +97,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         @Override public void click(int id) { a11yFocus(id); activate(); }
     });
 
+    private final ContinueMenu menu = new ContinueMenu();
     private int zone = Z_RAIL, cardIndex, railIndex, panelCol, panelRow, gridIndex;
     private boolean panelOpen, sheetOpen, running, idle, okDown, backDown;
     private final Spring panel = new Spring(0.42f, 0.92f, 0), sheet = new Spring(0.36f, 0.92f, 0), scroll = new Spring(0.34f, 1f, 0);
@@ -110,7 +111,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     private List<HomeApps.Item> others = new ArrayList<>();
     private final List<Row> left = new ArrayList<>(), right = new ArrayList<>();
     private Spring[] railScale = new Spring[0];
-    private final RectF[] cardRects = new RectF[Jellyfin.LIMIT], cardBase = new RectF[Jellyfin.LIMIT];
+    private final RectF[] cardRects = new RectF[Watching.LIMIT], cardBase = new RectF[Watching.LIMIT];
     private final Spring cardScroll = new Spring(0.34f, 1f, 0);
     private final Backdrop backdrop = new Backdrop();
     private int cardFirst;
@@ -128,7 +129,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     private LinearGradient background;
 
     private Header header;
-    private Paint clockPaint, meridiemPaint, datePaint, cityPaint, tempPaint, infoPaint, headerPaint, cardTitlePaint, cardSubPaint,
+    private Paint clockPaint, meridiemPaint, datePaint, cityPaint, tempPaint, infoPaint, headerPaint, sectionPaint, tagPaint, cardTitlePaint, cardSubPaint,
             railLabelPaint, railSubPaint, rowTitlePaint, rowStatusPaint, sheetTitlePaint, gridLabelPaint, toastPaint, miniClockPaint, miniDatePaint;
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG),
             imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG), bitmapPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -157,7 +158,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         super(a);
         activity = a;
         data = HomeData.get(a);
-        jellyfin = Jellyfin.get(a);
+        watching = Watching.get(a);
         click = new Click(a);
         ui = a.getSharedPreferences("home-ui", Context.MODE_PRIVATE);
         tvInputs = (TvInputManager) a.getSystemService(Context.TV_INPUT_SERVICE);
@@ -183,9 +184,9 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         running = true;
         lastNanos = 0;
         data.addListener(this);
-        jellyfin.addListener(this);
+        watching.addListener(this);
         data.refreshIfStale();
-        jellyfin.refresh();
+        watching.refresh();
         if (tvInputs != null) tvInputs.registerCallback(inputCallback, handler);
         handler.postDelayed(tick, 15_000);
         checkNotices();
@@ -208,7 +209,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         handler.removeCallbacks(tick);
         handler.removeCallbacks(reloadSoon);
         data.removeListener(this);
-        jellyfin.removeListener(this);
+        watching.removeListener(this);
         ArcaDomo.get().stop(this);
         if (tvInputs != null) tvInputs.unregisterCallback(inputCallback);
     }
@@ -220,7 +221,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
 
     void reset(boolean animated) {
         wake();
-        jellyfin.refresh();
+        watching.refresh();
         sheetOpen = false;
         panelOpen = false;
         sheet.target = 0;
@@ -261,7 +262,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         return ArcaDomo.enabled() && corner.width() > 0;
     }
 
-    @Override public void onJellyfin() {
+    @Override public void onWatching() {
         wake();
         if (cardCount() == 0 && zone == Z_CARDS) zone = Z_RAIL;
         else if (cardCount() > 0 && zone == Z_RAIL && !moved && !panelOpen && !sheetOpen) zone = Z_CARDS;
@@ -273,7 +274,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
 
     private int cardCount() {
-        return Jellyfin.enabled() ? Math.min(cardRects.length, jellyfin.items.size()) : 0;
+        return Watching.enabled(getContext()) ? Math.min(cardRects.length, watching.items().size()) : 0;
     }
 
     @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
@@ -299,6 +300,8 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         tempPaint = Ui.numbers(Ui.light, 112 * k, INK);
         tempPaint.setLetterSpacing(-0.035f);
         infoPaint = Ui.numbers(Ui.regular, 24 * k, INK);
+        sectionPaint = Ui.text(Ui.medium, 32 * k, INK);
+        tagPaint = Ui.tagPaint(k);
         headerPaint = Ui.text(Ui.semibold, 22 * k, MUTE);
         headerPaint.setLetterSpacing(0.11f);
         cardTitlePaint = Ui.text(Ui.semibold, 28 * k, 0xFFFFFFFF);
@@ -663,6 +666,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             if (zone == Z_CARDS || zone == Z_RAIL || zone == Z_WEATHER) drawRing(c);
             c.restoreToCount(save);
         }
+        if (menu.isOpen() && zone == Z_CARDS && cardIndex < cardCount()) menu.draw(getContext(), c, cardRects[cardIndex], k, h, fill, stroke);
         float panelAlpha = p * (1 - s);
         if (panelAlpha > 0.002f) {
             int save = c.save();
@@ -687,8 +691,9 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
 
     private void updateBackdrop() {
-        if (zone == Z_CARDS && cardIndex < cardCount()) {
-            Bitmap image = jellyfin.items.get(cardIndex).image;
+        List<Watching.Card> cards = watching.items();
+        if (zone == Z_CARDS && cardIndex < cardCount() && cardIndex < cards.size()) {
+            Bitmap image = cards.get(cardIndex).image;
             if (image != null) backdrop.showPhoto(image, image);
             else backdrop.clear();
         } else if (zone == Z_RAIL && railIndex < rail.size() && w > 0) {
@@ -736,10 +741,11 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         drawInside(c);
         int n = cardCount();
         if (n > 0) {
-            c.drawText("CONTINUE WATCHING", 112 * k, 394 * k, headerPaint);
+            c.drawText("Watch next", 112 * k, 508 * k, sectionPaint);
             c.save();
             c.clipRect(80 * k, 0, w, h);
-            for (int i = 0; i < n; i++) if (cardRects[i].right > 80 * k && cardRects[i].left < w) drawCard(c, jellyfin.items.get(i), cardRects[i], i);
+            List<Watching.Card> cards = watching.items();
+            for (int i = 0; i < n && i < cards.size(); i++) if (cardRects[i].right > 80 * k && cardRects[i].left < w) drawCard(c, cards.get(i), cardRects[i], i);
             c.restore();
         }
         Glass.plate(c, railPlate, k, fill, stroke);
@@ -759,7 +765,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         return comma > 0 ? city.substring(0, comma) : city;
     }
 
-    private void drawCard(Canvas c, Jellyfin.Item item, RectF r, int index) {
+    private void drawCard(Canvas c, Watching.Card item, RectF r, int index) {
         if (item.image != null) {
             drawImage(c, item.image, r, CARD_RADIUS * k, false);
         } else {
@@ -779,9 +785,11 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         c.drawRect(r.left, shadeTop, r.right, r.bottom, fill);
         c.restore();
         fill.setShader(null);
+        if (item.tag != null) Ui.tag(c, fill, tagPaint, tmp, item.tag, r.left + 12 * k, r.top + 16 * k, k);
         float pad = 24 * k, max = r.width() - 2 * pad;
         c.drawText(fit(item.title, cardTitlePaint, max), r.left + pad, r.bottom - 66 * k, cardTitlePaint);
         c.drawText(fit(item.sub, cardSubPaint, max), r.left + pad, r.bottom - 36 * k, cardSubPaint);
+        if (item.next) return;
         fill.setColor(0x4DFFFFFF);
         tmp.set(r.left + pad, r.bottom - 19 * k, r.right - pad, r.bottom - 14 * k);
         c.drawRoundRect(tmp, 3 * k, 3 * k, fill);
@@ -864,7 +872,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
 
     private void drawFittedLogo(Canvas c, Thumbs.Entry entry, RectF r) {
         float ratio = (float) entry.logo.getWidth() / entry.logo.getHeight();
-        float width = Math.min(0.58f * r.width(), 0.32f * r.height() * ratio), height = width / ratio;
+        float width = Math.min(entry.width * r.width(), 0.32f * r.height() * ratio), height = width / ratio;
         Bitmap logo = Thumbs.fit(entry, Math.round(width * TILE_FOCUS));
         tmp.set(r.centerX() - width / 2, r.centerY() - height / 2, r.centerX() + width / 2, r.centerY() + height / 2);
         bitmapPaint.setAlpha(255);
@@ -1041,8 +1049,54 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
 
     // MARK: - Keys
 
+    private boolean menuKey(KeyEvent e) {
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        switch (e.getKeyCode()) {
+            case KeyEvent.KEYCODE_DPAD_UP:
+                if (down) menu.move(-1);
+                break;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                if (down) menu.move(1);
+                break;
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                if (down && e.getRepeatCount() == 0) okDown = true;
+                else if (!down && okDown && !e.isCanceled()) runMenu();
+                if (!down) okDown = false;
+                break;
+            case KeyEvent.KEYCODE_BACK:
+                if (down && e.getRepeatCount() == 0) backDown = true;
+                else if (!down && backDown && !e.isCanceled()) menu.close();
+                if (!down) backDown = false;
+                break;
+            default:
+                break;
+        }
+        invalidate();
+        return true;
+    }
+
+    private void runMenu() {
+        List<Watching.Card> cards = watching.items();
+        if (cardIndex >= cards.size()) {
+            menu.close();
+            return;
+        }
+        Watching.Card card = cards.get(cardIndex);
+        if (menu.choose() == ContinueMenu.DETAILS) {
+            if (!watching.details(activity, card)) showToast(watching.failure());
+        } else {
+            watching.hide(card.id, () -> {
+                showToast("Couldn't remove it");
+                invalidate();
+            });
+        }
+    }
+
     boolean onKey(KeyEvent e) {
         wake();
+        if (menu.isOpen()) return menuKey(e);
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         switch (e.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -1062,6 +1116,11 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
                 if (down) {
                     if (e.getRepeatCount() == 0) okDown = true;
+                    else if (e.getRepeatCount() == 1 && okDown && zone == Z_CARDS && cardIndex < watching.items().size() && !panelOpen && !sheetOpen) {
+                        okDown = false;
+                        menu.open();
+                        invalidate();
+                    }
                 } else {
                     if (okDown && !e.isCanceled() && spoken.keyClick()) activate();
                     okDown = false;
@@ -1267,7 +1326,8 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         click.open();
         switch (zone) {
             case Z_CARDS:
-                if (cardIndex < cardCount() && !Jellyfin.open(activity, jellyfin.items.get(cardIndex))) showToast("Couldn't open Jellyfin");
+                List<Watching.Card> cards = watching.items();
+                if (cardIndex < cardCount() && cardIndex < cards.size() && !watching.open(activity, cards.get(cardIndex))) showToast(watching.failure());
                 break;
             case Z_RAIL:
                 openItem(rail.get(railIndex), railRects[railIndex]);
@@ -1336,9 +1396,10 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         int group = (id - 1) / 1000, index = (id - 1) % 1000;
         switch (group) {
             case G_CARD:
-                if (index >= cardCount()) return "";
-                Jellyfin.Item item = jellyfin.items.get(index);
-                return item.title + ", " + item.sub + ", " + Math.round(item.progress * 100) + " percent watched";
+                List<Watching.Card> cards = watching.items();
+                if (index >= cardCount() || index >= cards.size()) return "";
+                Watching.Card item = cards.get(index);
+                return item.next ? (item.tag == null ? "" : item.tag + ", ") + item.title + ", " + item.sub : item.title + ", " + item.sub + ", " + Math.round(item.progress * 100) + " percent watched";
             case G_RAIL:
                 if (index >= rail.size()) return "";
                 HomeApps.Item it = rail.get(index);

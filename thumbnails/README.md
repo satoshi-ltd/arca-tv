@@ -14,7 +14,7 @@ Thumbnails for arca-tv: one entry per app, shown on the shelf as the app's logo 
 3. Run `python3 thumbnails/tools/validate.py`, then `python3 thumbnails/tools/preview.py` and open `thumbnails/preview.html`.
 4. Run `python3 thumbnails/tools/render.py` (needs `rsvg-convert`) to regenerate `app/assets/thumbnails`: the JSON and one PNG per logo, which is what the app reads. Android cannot draw SVG.
 
-Logos are drawn inside a box of 58% of the tile's width by 32% of its height, keeping their proportions, so wide wordmarks and square icons weigh about the same.
+Logos are drawn inside a box of 58% of the tile's width (or `width`, a fraction between 0.3 and 0.9, set per entry) by 32% of its height, keeping their proportions, so wide wordmarks and square icons weigh about the same. The arca app logos (photos, music, media, domo) show the icon and the domain only and share one viewBox width, so their icons come out the same size. They share one logo and only change colour (brand C2): a very dark tile with 16% of the app's colour, a white arch and wordmark, and the door lit in the app's colour with a soft glow; the `brand` in `thumbnails.json` is that colour.
 
 `brand` is the vivid colour of the brand, never its dark background.
 

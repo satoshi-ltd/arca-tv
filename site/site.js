@@ -32,6 +32,16 @@
     setTimeout(() => { label.textContent = 'Copy'; }, 2000);
   });
 
+  if ('IntersectionObserver' in window) {
+    const watcher = new IntersectionObserver((entries) => {
+      for (const entry of entries) entry.target.classList.toggle('is-away', !entry.isIntersecting || entry.intersectionRatio < 0.25);
+    }, { threshold: 0.25 });
+    for (const demo of document.querySelectorAll('.hero, .demo')) {
+      demo.classList.add('is-away');
+      watcher.observe(demo);
+    }
+  }
+
   document.addEventListener('keydown', (event) => {
     const tab = event.target.closest && event.target.closest('[role="tab"]');
     if (!tab || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;

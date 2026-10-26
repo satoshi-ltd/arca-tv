@@ -81,8 +81,8 @@ public class SettingsActivity extends Activity {
         private final Spoken spoken;
         private JSONObject state = new JSONObject();
         private int screen = MAIN, focus, scroll, shelfCount;
-        private static final int[] MAIN_ICONS = {R.drawable.icon_home_screen, R.drawable.icon_hub, R.drawable.icon_continue_watching, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_info};
-        private static final int[] MAIN_ICONS_COLOURS = {R.drawable.icon_home_screen, R.drawable.icon_hub, R.drawable.icon_continue_watching, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_remote, R.drawable.icon_info};
+        private static final int[] MAIN_ICONS = {R.drawable.icon_home_screen, R.drawable.icon_hub, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_info};
+        private static final int[] MAIN_ICONS_COLOURS = {R.drawable.icon_home_screen, R.drawable.icon_hub, R.drawable.icon_screensaver, R.drawable.icon_partly_day, R.drawable.icon_shortcuts, R.drawable.icon_remote, R.drawable.icon_info};
         private String note = "";
         private long noteAt;
         private boolean grabbing, colours;
@@ -259,7 +259,6 @@ public class SettingsActivity extends Activity {
             List<String[]> rows = new ArrayList<>();
             rows.add(new String[] {"Home screen", busy() ? "" : mode});
             rows.add(new String[] {"Hub", ArcaHub.connected(getContext()) ? ArcaHub.name(getContext()) : "Not connected"});
-            rows.add(new String[] {"Continue watching", sourceName()});
             rows.add(new String[] {"Screensaver", !Prefs.screensaver() ? "Off" : PhotoStream.available(getContext()) ? "Photos" : "Colours"});
             rows.add(new String[] {"Weather", weatherValue()});
             rows.add(new String[] {"Shortcuts", shelfCount + " of " + HomeApps.MAX_SHELF});
@@ -271,11 +270,6 @@ public class SettingsActivity extends Activity {
         private static String weatherValue() {
             if (!Prefs.weather()) return "Off";
             return Prefs.city().isEmpty() ? "On" : Prefs.city();
-        }
-
-        private static String sourceName() {
-            if (!Jellyfin.configured()) return "Connect";
-            return Jellyfin.enabled() ? "Jellyfin" : "Off";
         }
 
         private String rowText(int row) {
@@ -493,7 +487,7 @@ public class SettingsActivity extends Activity {
                             if (grabbing) {
                                 grabbing = false;
                             } else {
-                                focus = screen == HOME_CHOICE ? 0 : 5;
+                                focus = screen == HOME_CHOICE ? 0 : 4;
                                 screen = MAIN;
                                 shelfCount = HomeApps.shelfPackages(getContext()).size();
                             }
@@ -594,15 +588,13 @@ public class SettingsActivity extends Activity {
             } else if (focus == 1) {
                 c.startActivity(new Intent(c, HubActivity.class));
             } else if (focus == 2) {
-                c.startActivity(new Intent(c, JellyfinActivity.class));
-            } else if (focus == 3) {
                 Prefs.setScreensaver(!Prefs.screensaver());
                 HomeMode.requestSaver(c);
-            } else if (focus == 4) {
+            } else if (focus == 3) {
                 c.startActivity(new Intent(c, LocationActivity.class));
-            } else if (focus == 5) {
+            } else if (focus == 4) {
                 openShelfEditor();
-            } else if (focus == 6 && colours) {
+            } else if (focus == 5 && colours) {
                 c.startActivity(new Intent(c, ColourButtonsActivity.class));
             }
             invalidate();

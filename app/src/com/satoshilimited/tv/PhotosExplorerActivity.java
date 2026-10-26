@@ -57,9 +57,9 @@ public class PhotosExplorerActivity extends Activity {
 
     static final class ExplorerView extends View implements PhotoLibrary.Listener {
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF;
-        private static final float LEFT = 112, TILE = 236, TILE_H = 177, TILE_GAP = 18, HEADING = 84, VIEW_TOP = 236, VIEW_BOTTOM = 1022, RAIL_X = 1792, RAIL_TOP = 262, RAIL_BOTTOM = 1030;
+        private static final float LEFT = 112, TILE = 236, TILE_H = 177, TILE_GAP = 18, HEADING = 78, VIEW_TOP = 236, VIEW_BOTTOM = 1022, RAIL_X = 1792, RAIL_TOP = 262, RAIL_BOTTOM = 1030;
         private static final int COLS = 6;
-        private static final float MEMORIES_H = 276, MEMORY_LABEL = 43, MEMORY_TOP = 68, MEMORY_SHADE = 110;
+        private static final float MEMORIES_H = 284, MEMORY_LABEL = 38, MEMORY_TOP = 72, MEMORY_SHADE = 110;
         private static final String[] MONTHS = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 
         private final PhotosExplorerActivity activity;
@@ -79,7 +79,7 @@ public class PhotosExplorerActivity extends Activity {
         private float k = 1;
         private LinearGradient background;
         private Header header;
-        private Paint monthPaint, countPaint, yearPaint, messagePaint, chipPaint, chipCountPaint;
+        private Paint monthPaint, monthCountPaint, countPaint, yearPaint, messagePaint, chipPaint, chipCountPaint;
         private int chipMonth = -1;
         private String chipLabel = "", chipCount = "";
         private List<PhotoLibrary.Memory> memories = new ArrayList<>();
@@ -124,15 +124,15 @@ public class PhotosExplorerActivity extends Activity {
             k = w / 1920f;
             background = new LinearGradient(0, 0, 0, h, new int[] {0xFF141414, 0xFF0E0E0E, 0xFF0A0A0A}, new float[] {0, 0.55f, 1}, Shader.TileMode.CLAMP);
             header = new Header(k);
-            monthPaint = Ui.text(Ui.medium, 30 * k, INK);
+            monthPaint = Ui.text(Ui.medium, 32 * k, INK);
+            monthCountPaint = Ui.text(Ui.regular, 24 * k, MUTE);
             countPaint = Ui.text(Ui.regular, 24 * k, MUTE);
             yearPaint = Ui.text(Ui.medium, 20 * k, MUTE);
             yearPaint.setTextAlign(Paint.Align.RIGHT);
             messagePaint = Ui.text(Ui.medium, 30 * k, 0x73FFFFFF);
             chipPaint = Ui.text(Ui.semibold, 30 * k, 0xFF141414);
             chipCountPaint = Ui.text(Ui.regular, 26 * k, 0x99141414);
-            memoryLabel = Ui.text(Ui.semibold, 22 * k, MUTE);
-            memoryLabel.setLetterSpacing(0.11f);
+            memoryLabel = Ui.text(Ui.medium, 32 * k, INK);
             memoryTitle = Ui.text(Ui.semibold, 20 * k, INK);
             memoryDetail = Ui.text(Ui.regular, 17 * k, 0xCCFFFFFF);
             memoryShade = new LinearGradient(0, 0, 0, MEMORY_SHADE * k, 0x000A0A0A, 0xD10A0A0A, Shader.TileMode.CLAMP);
@@ -317,9 +317,9 @@ public class PhotosExplorerActivity extends Activity {
                         PhotoLibrary.Month m = library.months.get(rowMonth[r]);
                         String label = monthLabel(rowMonth[r]);
                         String count = m.count + (m.count == 1 ? " item" : " items");
-                        float textY = y + 44;
+                        float textY = y + 40;
                         c.drawText(label, LEFT * k, textY * k, monthPaint);
-                        c.drawText(count, LEFT * k + monthPaint.measureText(label) + 16 * k, textY * k, countPaint);
+                        c.drawText(count, LEFT * k + monthPaint.measureText(label) + 16 * k, textY * k, monthCountPaint);
                         fill.setColor(Glass.EDGE);
                         c.drawRect(LEFT * k, (textY + 14) * k, w - LEFT * k, (textY + 14) * k + 1.5f * k, fill);
                     }
@@ -347,7 +347,7 @@ public class PhotosExplorerActivity extends Activity {
         }
 
         private void drawMemories(Canvas c, float top) {
-            c.drawText("ON THIS DAY", LEFT * k, (top + MEMORY_LABEL) * k, memoryLabel);
+            c.drawText("On this day", LEFT * k, (top + MEMORY_LABEL) * k, memoryLabel);
             for (int i = 0; i < memories.size(); i++) {
                 PhotoLibrary.Memory m = memories.get(i);
                 float x = LEFT + i * (TILE + TILE_GAP), y = top + MEMORY_TOP;

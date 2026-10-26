@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.satoshilimited.tv"
-    android:versionCode="6"
-    android:versionName="1.0.5">
+    android:versionCode="7"
+    android:versionName="1.1.0">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -51,8 +51,8 @@
     <application
         android:name=".App"
         android:label="arca TV"
-        android:icon="@drawable/arca_icon"
-        android:banner="@drawable/arca_banner"
+        android:icon="@drawable/arca_tv_icon"
+        android:banner="@drawable/arca_tv_banner"
         android:allowBackup="false"
         android:usesCleartextTraffic="true">
 
@@ -62,8 +62,8 @@
             android:process=":home"
             android:exported="true"
             android:label="arca TV"
-            android:icon="@drawable/arca_icon"
-            android:banner="@drawable/arca_banner"
+            android:icon="@drawable/arca_tv_icon"
+            android:banner="@drawable/arca_tv_banner"
             android:launchMode="singleTask"
             android:taskAffinity="com.satoshilimited.tv.settings"
             android:excludeFromRecents="true"
@@ -76,16 +76,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".JellyfinActivity"
-            android:process=":home"
-            android:exported="false"
-            android:label="arca TV"
-            android:excludeFromRecents="true"
-            android:screenOrientation="landscape"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
-            android:theme="@style/ArcaTv.Home" />
 
         <activity
             android:name=".ColourButtonsActivity"
@@ -152,6 +142,26 @@
             android:process=":home"
             android:exported="false"
             android:label="arca Music"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:theme="@style/ArcaTv.Home" />
+
+        <activity
+            android:name=".HubMoviesActivity"
+            android:process=":home"
+            android:exported="false"
+            android:label="arca Movies"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:theme="@style/ArcaTv.Home" />
+
+        <activity
+            android:name=".VideoPlayerActivity"
+            android:process=":home"
+            android:exported="false"
+            android:label="arca Movies"
             android:excludeFromRecents="true"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"

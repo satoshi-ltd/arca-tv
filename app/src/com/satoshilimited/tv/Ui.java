@@ -75,6 +75,31 @@ final class Ui {
         return p;
     }
 
+    static Paint tagPaint(float k) {
+        Paint p = text(semibold, 18 * k, 0xFFFFFFFF);
+        p.setLetterSpacing(0.11f);
+        return p;
+    }
+
+    static void tag(Canvas c, Paint fill, Paint text, RectF box, String label, float x, float y, float k) {
+        String upper = label.toUpperCase(Locale.ROOT);
+        box.set(x, y, x + text.measureText(upper) + 24 * k, y + 34 * k);
+        fill.setColor(0x8C000000);
+        c.drawRoundRect(box, 10 * k, 10 * k, fill);
+        c.drawText(upper, x + 12 * k, y + 23 * k, text);
+    }
+
+    static String fit(String text, Paint paint, float max) {
+        if (paint.measureText(text) <= max) return text;
+        int n = paint.breakText(text, true, max - paint.measureText("…"), null);
+        return text.substring(0, Math.max(0, n)).trim() + "…";
+    }
+
+    static String clockTime(long seconds) {
+        long s = Math.max(0, seconds);
+        return s >= 3600 ? String.format(Locale.ROOT, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String.format(Locale.ROOT, "%d:%02d", s / 60, s % 60);
+    }
+
     static float cap(Paint p) {
         synchronized (BOUNDS) {
             p.getTextBounds("H8", 0, 2, BOUNDS);

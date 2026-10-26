@@ -115,7 +115,7 @@ figure { margin: 0; }
 figcaption { margin-top: 16px; color: var(--faint); font-size: 14px; line-height: 1.5; }
 .wide-shot img, .product-shot img { display: block; width: 100%; height: auto; border-radius: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 24px 70px rgba(0,0,0,.4); }
 
-.hero {
+.hero, .demo {
   position: relative;
   margin: 0;
   width: 100%;
@@ -142,11 +142,11 @@ figcaption { margin-top: 16px; color: var(--faint); font-size: 14px; line-height
 .film img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(calc(var(--u) * 48)) saturate(1.1); }
 .film::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10, 10, 10, 0.62) 0%, rgba(10, 10, 10, 0.6) 38%, rgba(10, 10, 10, 0.86) 100%); }
 .glow { --x: 0; background: radial-gradient(85% 90% at calc(var(--u) * var(--x)) 85%, var(--c88) 0%, var(--c44) 48%, #0a0a0acc 100%), linear-gradient(180deg, #141414, #0a0a0a); }
-.glow.jellyfin { --x: 293; --c88: #7b5cd988; --c44: #7b5cd944; }
-.glow.netflix { --x: 560; --c88: #e5091488; --c44: #e5091444; }
-.glow.youtube { --x: 827; --c88: #ff003388; --c44: #ff003344; }
-.glow.appletv { --x: 1093; --c88: #57595e88; --c44: #57595e44; }
-.glow.disneyplus { --x: 1360; --c88: #3156ce88; --c44: #3156ce44; }
+.glow.netflix { --x: 293; --c88: #e5091488; --c44: #e5091444; }
+.glow.movies { --x: 560; --c88: #c17b8588; --c44: #c17b8544; }
+.glow.photos { --x: 827; --c88: #c1a07b88; --c44: #c1a07b44; }
+.glow.music { --x: 1093; --c88: #9c7bc188; --c44: #9c7bc144; }
+.glow.youtube { --x: 1360; --c88: #ff003388; --c44: #ff003344; }
 .weather { background: radial-gradient(70% 80% at 80% 15%, #6f907c88 0%, #45645044 50%, #0a0a0acc 100%), linear-gradient(180deg, #141414, #0a0a0a); }
 .apps-screen { width: 100%; height: 100%; object-fit: cover; }
 .wx-plate {
@@ -191,8 +191,8 @@ figcaption { margin-top: 16px; color: var(--faint); font-size: 14px; line-height
 .i46 { width: calc(var(--u) * 46); height: calc(var(--u) * 46); }
 .tv .i46 { stroke: #fff; }
 
-.tv-row { position: absolute; left: calc(var(--u) * 112); right: calc(var(--u) * 112); top: calc(var(--u) * 376); }
-.tv-label { font-size: calc(var(--u) * 22); font-weight: 600; letter-spacing: calc(var(--u) * 2.5); text-transform: uppercase; color: var(--mute); margin-bottom: calc(var(--u) * 20); }
+.tv-row { position: absolute; left: calc(var(--u) * 112); right: calc(var(--u) * 112); top: calc(var(--u) * 482); }
+.tv-label { font-size: calc(var(--u) * 32); font-weight: 500; line-height: 1; color: var(--ink); margin-bottom: calc(var(--u) * 29); }
 .cards { display: flex; gap: calc(var(--u) * 32); }
 .card {
   position: relative;
@@ -205,6 +205,7 @@ figcaption { margin-top: 16px; color: var(--faint); font-size: 14px; line-height
 }
 .card.f-c0 { transform: scale(1.05); box-shadow: 0 0 0 calc(var(--u) * 6) rgba(0, 0, 0, 0.35), 0 0 0 calc(var(--u) * 9) #f2f2f2; }
 .card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card-tag { position: absolute; z-index: 1; left: calc(var(--u) * 12); top: calc(var(--u) * 16); height: calc(var(--u) * 34); padding: 0 calc(var(--u) * 12); border-radius: calc(var(--u) * 10); background: #0000008c; font-size: calc(var(--u) * 18); font-weight: 600; line-height: calc(var(--u) * 34); letter-spacing: 0.11em; text-transform: uppercase; color: #fff; }
 .card-text { position: absolute; left: 0; right: 0; bottom: 0; padding: calc(var(--u) * 56) calc(var(--u) * 24) calc(var(--u) * 26); background: linear-gradient(180deg, #00000000 0%, #000000a8 42%, #000000e0 100%); }
 .card-title { font-size: calc(var(--u) * 28); font-weight: 600; color: #fff; line-height: 1.1; }
 .card-sub { font-size: calc(var(--u) * 20); color: #ffffffd9; margin-top: calc(var(--u) * 4); }
@@ -220,7 +221,7 @@ figcaption { margin-top: 16px; color: var(--faint); font-size: 14px; line-height
   left: calc(var(--u) * 112);
   right: calc(var(--u) * 112);
   bottom: calc(var(--u) * 74);
-  height: calc(var(--u) * 260);
+  height: calc(var(--u) * 190);
   border-radius: calc(var(--u) * 44);
   background: #ffffff1a;
   backdrop-filter: blur(24px);
@@ -245,16 +246,15 @@ figcaption { margin-top: 16px; color: var(--faint); font-size: 14px; line-height
 }
 .tile::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(120% 90% at 50% 130%, var(--c66) 0%, #0000 70%); box-shadow: inset 0 0 0 1.5px #ffffff24, inset 0 1px 0 #ffffff1f; }
 .tile img, .tile svg { position: relative; display: block; }
-.tile.jellyfin { --c66: #7b5cd966; }
 .tile.netflix { --c66: #e5091466; }
+.tile.movies { --c66: #c17b8566; }
+.tile.photos { --c66: #c1a07b66; }
+.tile.music { --c66: #9c7bc166; }
 .tile.youtube { --c66: #ff003366; }
-.tile.appletv { --c66: #57595e66; }
-.tile.disneyplus { --c66: #3d6bff66; }
-.logo-wide { width: calc(var(--u) * 135); height: calc(var(--u) * 39); }
+.logo-arca { width: calc(var(--u) * 167); height: calc(var(--u) * 53); }
 .logo-netflix { width: calc(var(--u) * 135); height: calc(var(--u) * 36); }
 .logo-youtube { width: calc(var(--u) * 135); height: calc(var(--u) * 29); }
-.logo-appletv { width: calc(var(--u) * 83); height: calc(var(--u) * 42); }
-.logo-disneyplus { width: calc(var(--u) * 77); height: calc(var(--u) * 42); }
+
 
 @keyframes drift {
   0% { transform: translate(0%, 4%) scale(1.14); }
@@ -322,7 +322,8 @@ h3 { margin: 0; font-size: 22px; font-weight: 500; }
 .demo-caption .pill { height: 44px; padding: 0 16px; font-size: 12px; color: var(--mute); }
 .demo-caption .pill:hover { background: rgba(255, 255, 255, 0.06); color: var(--ink); }
 button.pill { font-family: inherit; color: var(--ink); border: 0; cursor: pointer; }
-.hero.is-paused *, .hero.is-paused *::before { animation-play-state: paused !important; }
+.hero.is-paused *, .hero.is-paused *::before, .hero.is-paused *::after, .demo.is-paused *, .demo.is-paused *::before, .demo.is-paused *::after { animation: none !important; }
+.hero.is-away *, .hero.is-away *::before, .hero.is-away *::after, .demo.is-away *, .demo.is-away *::before, .demo.is-away *::after { animation-play-state: paused !important; }
 .split { display: grid; gap: 72px; align-items: start; }
 .split.faq { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
 .i20, .i18 { fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }

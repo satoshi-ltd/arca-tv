@@ -20,6 +20,7 @@ final class Prefs {
 
     static void init(Context c) {
         app = c.getApplicationContext();
+        forgetJellyfin();
     }
 
     private static SharedPreferences sp() {
@@ -91,35 +92,8 @@ final class Prefs {
         put("shelf", sb.toString());
     }
 
-    // MARK: - Continue watching
-
-    static String continueSource() { return sp().getString("continueSource", "jellyfin"); }
-    static void setContinueSource(String source) { put("continueSource", source); }
-
-    static String jellyfinUrl() { return sp().getString("jellyfinUrl", ""); }
-    static String jellyfinToken() { return sp().getString("jellyfinToken", ""); }
-    static String jellyfinUserId() { return sp().getString("jellyfinUserId", ""); }
-    static String jellyfinUser() { return sp().getString("jellyfinUser", ""); }
-    static String jellyfinServer() { return sp().getString("jellyfinServer", ""); }
-    static String jellyfinLast() { return sp().getString("jellyfinLast", ""); }
-
-    static String jellyfinDevice() {
-        String v = sp().getString("jellyfinDevice", "");
-        if (v.isEmpty()) {
-            v = java.util.UUID.randomUUID().toString();
-            put("jellyfinDevice", v);
-        }
-        return v;
-    }
-
-    static void setJellyfin(String url, String token, String userId, String user, String server) {
-        sp().edit().putString("jellyfinUrl", url).putString("jellyfinToken", token).putString("jellyfinUserId", userId)
-                .putString("jellyfinUser", user).putString("jellyfinServer", server).putString("jellyfinLast", url).putString("continueSource", "jellyfin").apply();
-        version++;
-    }
-
-    static void clearJellyfin() {
-        sp().edit().remove("jellyfinUrl").remove("jellyfinToken").remove("jellyfinUserId").remove("jellyfinUser").remove("jellyfinServer").apply();
-        version++;
+    static void forgetJellyfin() {
+        sp().edit().remove("continueSource").remove("jellyfinUrl").remove("jellyfinToken").remove("jellyfinUserId").remove("jellyfinUser")
+                .remove("jellyfinServer").remove("jellyfinLast").remove("jellyfinDevice").apply();
     }
 }

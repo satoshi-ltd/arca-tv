@@ -200,8 +200,8 @@ public class HubMusicActivity extends Activity {
             spinner.setColor(0xB8FFFFFF);
             initial = Ui.text(Ui.light, 96 * k, DIM);
             initial.setTextAlign(Paint.Align.CENTER);
-            label = Ui.text(Ui.semibold, 20 * k, MUTE);
-            label.setLetterSpacing(0.12f);
+            label = Ui.text(Ui.semibold, 22 * k, MUTE);
+            label.setLetterSpacing(0.11f);
         }
 
         private Screen top() {

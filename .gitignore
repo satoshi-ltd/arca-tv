@@ -16,7 +16,5 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Jellyfin API key
-.jellyfin-token
 site/dist/
 site/node_modules/

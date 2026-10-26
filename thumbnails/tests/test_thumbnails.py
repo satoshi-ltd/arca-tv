@@ -76,3 +76,22 @@ def test_render_includes_device_logos():
     logos = render.logos(data)
     assert {"playstation.svg", "xbox.svg", "nintendo.svg"} <= set(logos)
     assert "netflix.svg" in logos
+
+
+def test_arca_app_logos_share_one_view_box_width():
+    import re
+
+    widths = set()
+    for name in ("arcaphotos", "arcamusic", "arcamovies", "arcadomo"):
+        svg = (validate.ROOT / "logos" / f"{name}.svg").read_text()
+        box = re.search(r'viewBox="([^"]+)"', svg).group(1).split()
+        widths.add((box[2], box[3]))
+    assert len(widths) == 1
+
+
+def test_rejects_out_of_range_logo_width(tmp_path):
+    root = copy(tmp_path)
+    data = json.loads((root / "thumbnails.json").read_text())
+    data["apps"][0]["width"] = 1.4
+    (root / "thumbnails.json").write_text(json.dumps(data))
+    assert any("width" in e for e in validate.errors(root))

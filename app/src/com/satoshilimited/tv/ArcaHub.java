@@ -36,8 +36,7 @@ final class ArcaHub {
     }
 
     static final class Folders {
-        final List<String> photos = new ArrayList<>(), music = new ArrayList<>(), photoIds = new ArrayList<>(), musicIds = new ArrayList<>();
-        int photoCount;
+        final List<String> photos = new ArrayList<>(), music = new ArrayList<>(), video = new ArrayList<>(), photoIds = new ArrayList<>(), musicIds = new ArrayList<>(), videoIds = new ArrayList<>();
     }
 
     interface Callback<T> { void done(T result, String error); }
@@ -71,10 +70,38 @@ final class ArcaHub {
     }
 
     static String get(Context c, String path, int maxBytes) throws IOException {
+        return get(c, path, maxBytes, 15000);
+    }
+
+    static String get(Context c, String path, int maxBytes, int timeoutMs) throws IOException {
         SharedPreferences p = prefs(c);
-        Response r = request("GET", p.getString("url", "") + path, p.getString("token", ""), null, 15000, maxBytes);
+        String token = p.getString("token", "");
+        Response r = request("GET", p.getString("url", "") + path, token, null, timeoutMs, maxBytes);
         if (r.code == 401) {
-            disconnect(c.getApplicationContext());
+            disconnectIfCurrent(c.getApplicationContext(), token);
+            throw new IOException(REVOKED);
+        }
+        if (r.code != 200) throw new IOException("HTTP " + r.code);
+        return r.body;
+    }
+
+    static Response reply(Context c, String path, int maxBytes) throws IOException {
+        SharedPreferences p = prefs(c);
+        String token = p.getString("token", "");
+        Response r = request("GET", p.getString("url", "") + path, token, null, 15000, maxBytes);
+        if (r.code == 401) {
+            disconnectIfCurrent(c.getApplicationContext(), token);
+            throw new IOException(REVOKED);
+        }
+        return r;
+    }
+
+    static String post(Context c, String path, JSONObject body) throws IOException {
+        SharedPreferences p = prefs(c);
+        String token = p.getString("token", "");
+        Response r = request("POST", p.getString("url", "") + path, token, body.toString(), 10000);
+        if (r.code == 401) {
+            disconnectIfCurrent(c.getApplicationContext(), token);
             throw new IOException(REVOKED);
         }
         if (r.code != 200) throw new IOException("HTTP " + r.code);
@@ -85,8 +112,14 @@ final class ArcaHub {
         return "Bearer " + prefs(c).getString("token", "");
     }
 
-    static void disconnect(Context c) {
+    private static synchronized void disconnectIfCurrent(Context c, String token) {
+        if (token.equals(prefs(c).getString("token", ""))) disconnect(c);
+    }
+
+    static synchronized void disconnect(Context c) {
         prefs(c).edit().clear().apply();
+        VideoLibrary.forget(c);
+        HubCounts.forget(c);
     }
 
     static final String DEFAULT_NAME = "arca TV";
@@ -143,8 +176,11 @@ final class ArcaHub {
                     String token = o.optString("token"), id = o.optString("id"), hubId = o.optString("hubId");
                     boolean player = "player".equals(o.optString("role"));
                     if (token.isEmpty() || id.isEmpty()) throw new IOException("bad reply");
-                    prefs(app).edit().putString("url", hub.url).putString("name", hub.name).putString("token", token)
-                            .putString("device", id).putString("hub", hubId).putBoolean("player", player).remove("reported").apply();
+                    synchronized (ArcaHub.class) {
+                        VideoLibrary.forget(app);
+                        prefs(app).edit().clear().putString("url", hub.url).putString("name", hub.name).putString("token", token)
+                                .putString("device", id).putString("hub", hubId).putBoolean("player", player).apply();
+                    }
                     reportName(app);
                 } else if (r.code == 401) {
                     error = INVALID_CODE;
@@ -191,7 +227,7 @@ final class ArcaHub {
     private static Set<String> playedFolders(SharedPreferences p) {
         Set<String> ids = new LinkedHashSet<>();
         if (!p.getBoolean("player", false)) return ids;
-        for (String kind : new String[] {"photos", "music"})
+        for (String kind : new String[] {"photos", "music", "video"})
             if (!p.getString(kind, "").isEmpty()) ids.add(p.getString(kind, ""));
         return ids;
     }
@@ -212,9 +248,9 @@ final class ArcaHub {
 
     static void refresh(Context c, Runnable changed) {
         if (!connected(c)) return;
-        String before = volume(c, "photos") + "|" + volume(c, "music");
+        String before = volume(c, "photos") + "|" + volume(c, "music") + "|" + volume(c, "video");
         folders(c, (folders, error) -> {
-            if (!(volume(c, "photos") + "|" + volume(c, "music")).equals(before)) changed.run();
+            if (!(volume(c, "photos") + "|" + volume(c, "music") + "|" + volume(c, "video")).equals(before)) changed.run();
         });
     }
 
@@ -225,9 +261,10 @@ final class ArcaHub {
             String error = null;
             try {
                 SharedPreferences p = prefs(app);
-                Response r = request("GET", p.getString("url", "") + "/v1/catalog", p.getString("token", ""), null, 6000);
+                String token = p.getString("token", "");
+                Response r = request("GET", p.getString("url", "") + "/v1/catalog", token, null, 6000);
                 if (r.code == 401) {
-                    disconnect(app);
+                    disconnectIfCurrent(app, token);
                     error = REVOKED;
                 } else if (r.code == 200) {
                     JSONArray volumes = new JSONObject(r.body).optJSONArray("volumes");
@@ -236,15 +273,22 @@ final class ArcaHub {
                         if (v.optBoolean("gallery")) {
                             folders.photos.add(v.optString("name"));
                             folders.photoIds.add(v.optString("id"));
-                            if (folders.photoIds.size() == 1) folders.photoCount = v.optInt("files");
                         }
                         if (v.optBoolean("music")) {
                             folders.music.add(v.optString("name"));
                             folders.musicIds.add(v.optString("id"));
                         }
+                        if (v.optBoolean("video")) {
+                            folders.video.add(v.optString("name"));
+                            folders.videoIds.add(v.optString("id"));
+                        }
                     }
-                    p.edit().putString("photos", folders.photoIds.isEmpty() ? "" : folders.photoIds.get(0))
-                            .putString("music", folders.musicIds.isEmpty() ? "" : folders.musicIds.get(0)).apply();
+                    synchronized (ArcaHub.class) {
+                        if (!token.equals(p.getString("token", ""))) throw new IOException("hub changed");
+                        p.edit().putString("photos", folders.photoIds.isEmpty() ? "" : folders.photoIds.get(0))
+                                .putString("music", folders.musicIds.isEmpty() ? "" : folders.musicIds.get(0))
+                                .putString("video", folders.videoIds.isEmpty() ? "" : folders.videoIds.get(0)).apply();
+                    }
                     if (!reported(app).equals(p.getString("reported", ""))) reportName(app);
                 } else {
                     error = UNREACHABLE;
@@ -258,7 +302,7 @@ final class ArcaHub {
         });
     }
 
-    private static final class Response {
+    static final class Response {
         int code;
         String body = "";
     }

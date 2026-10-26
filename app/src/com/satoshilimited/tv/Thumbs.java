@@ -24,6 +24,7 @@ final class Thumbs {
     static final class Entry {
         String name, logoFile;
         int brand;
+        float width = 0.58f;
         Bitmap logo;
         boolean loaded;
         final Map<Integer, Bitmap> sized = new HashMap<>();
@@ -63,6 +64,7 @@ final class Thumbs {
         Entry e = new Entry();
         e.name = o.getString("name");
         e.brand = Color.parseColor(o.getString("brand"));
+        e.width = (float) o.optDouble("width", 0.58);
         String logo = o.optString("logo", "");
         e.logoFile = logo.isEmpty() ? null : "thumbnails/" + logo.replaceAll("\\.svg$", ".png");
         return e;

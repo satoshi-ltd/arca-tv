@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.0
+
+- Holding OK on a Watch next card offers Remove from Watch next on every card, not only the ones you started. The hub keeps it off the row on every device until you play that title again. Disconnect and pairing discard old library, artwork and Watch next results, and a delayed refusal of an old credential cannot disconnect a newly paired hub.
+- Artwork storage is trimmed as it grows, and full artwork keys prevent cache filename collisions. Leaving playback cancels pending player callbacks; delayed progress saves retain the video's original folder.
+
+- arca Movies: your hub's movies and shows on the TV. Tabs Home, Movies, TV Shows, Kids and Others, a page for each
+  movie and show, and a player with audio and subtitle lists, Up next and saved position. It appears when the hub has a
+  video library, and streams the original file without transcoding.
+- Watch next on Home comes from arca Movies: the titles you started, then the next episode of each show you follow. A card plays at the saved position (a next episode from the start).
+- arca Movies & TV is now arca Movies, and the arca app logos take the C2 colours: the same logo on a dark tile tinted with the app's colour, a white arch and the door lit in that colour. arca TV's icon and banner use the same dark grey and glow.
+- The arca TV banner and icon have a smaller logo, so it no longer fills the tile in Google TV's app gallery.
+- Website: animated demos of arca Movies, Photos and Music copied from the design, the home demo with arca Movies, Photos and Music on the shelf and Watch next as the hub sends it, sections that lead with the arca library, and share cards, structured data, robots.txt and a sitemap. The connection guide uses the hub’s current library controls; demos take more time, show clean stills when paused, pause out of view and load their lower-page images only as needed.
+- Jellyfin is no longer integrated: it is a normal app on the shelf. Settings has no Watch next row, the Quick Connect code and the Jellyfin sign-in are gone and any saved sign-in is erased on the first start.
+- arca Movies: the Movies, TV Shows, Kids and Others tabs can be sorted by A–Z, Recently added, Year or Rating (Others: A–Z and Recently added), remembered per tab.
+- Movies pages: a Related row of posters (at the end of a movie page, below the episodes on a show page; OK opens that title), audio and subtitle languages as two-letter chips on the badge row (two codes, then +N), the certification as an outlined badge, Mark as watched / unwatched for a whole show, a check on the poster of a watched title, and A–Z that ignores a leading article and accents.
+- On a show page the background follows the focused episode: moving along the episodes shows each one's still, and it goes back to the show's backdrop on the buttons and seasons.
+- Player: the top shows the title with its rating, certification, year and runtime, and the clock with the time the video would end at.
+- Next and New cards carry a NEXT or NEW chip at the top left, as in arca mobile and desktop, and their second line no longer repeats the word (S1 · E4 · title, Added this week).
+- Watch next on Home and in Movies is the hub's `watchNext` list, drawn as sent: the hub gives each card its title, second line, chip, artwork and progress, and the order is resume, next, related, new and waiting. Resume and next cards play; suggestions open the title's page. Without `watchNext` there is no row, and the Home picks that are shows are no longer dropped.
+- Section headings are one style everywhere: medium 32, sentence case (Home, Movies rows, Related, Photos On this day and month headings with their count).
+- Movies Home rows use the Home card (400×225, title and second line over a gradient, progress bar at the bottom edge) and the same section heading as Home, with more space between a heading and its cards; Related too.
+- Movies Home has one Watch next row: what you started, then the next episode of each show without a card (labelled Next, no progress bar, plays from the start), and a Kids picks row. Movies leaves out the Kids movies and Recently added leaves out Kids movies.
+- Player: a video the hub cannot stream says "This video's format can't be streamed" with only Close. Subtitles inside the file are only requested from the hub when you pick one or it is your remembered language; the list no longer repeats the file's own tracks, hub tracks are not labelled External, forced ones are flagged, and audio names come from the hub.
+- Home: the shortcuts plate is shorter (190 px) and Watch next sits just above it. Holding OK on a Watch next card (Home and Movies Home) opens a menu with Details (the title's page) and Remove from Watch next.
+- Hub screen lists Movies next to Photos and Music, each with what it holds: photos and videos, songs, movies and shows.
+- The arca app thumbnails (Photos, Music, Movies, Domo) show the icon and the name only (so all four stay the same size), in a firmer weight. Each has its own colour: Photos amber, Music violet, Movies rose, domo blue (icon, thumbnail tint and Home backdrop when focused). Their logos are drawn wider (72% of the tile) with a larger name so they read as big as the other apps'.
+- Player: rewind and forward arrows; holding Left or Right jumps in growing steps (10 s, then +30, +60, +120 and +240 s every 0.6 s); the dot and the time move, a marker stays where you started, a pill above the dot shows how far you went, and the
+  video jumps when you let go. Audio and Subtitles each open their own list, and a pill is drawn only when there is
+  something to choose.
+- Watched titles show a check on their poster, and a show page is a hero with the show's backdrop, season pills and a row
+  of episode cards.
+
 ## 1.0.5
 
 - arca domo purifiers: after a change, the screen checks that the purifier took it (power, mode or fan). If it did not,

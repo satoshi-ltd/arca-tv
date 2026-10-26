@@ -198,24 +198,36 @@
       "packages": [
         "org.arca.photos"
       ],
-      "brand": "#7fb893",
-      "logo": "arcaphotos.svg"
+      "brand": "#c1a07b",
+      "logo": "arcaphotos.svg",
+      "width": 0.72
     },
     {
       "name": "arca Music",
       "packages": [
         "org.arca.music"
       ],
-      "brand": "#7fb893",
-      "logo": "arcamusic.svg"
+      "brand": "#9c7bc1",
+      "logo": "arcamusic.svg",
+      "width": 0.72
+    },
+    {
+      "name": "arca Movies",
+      "packages": [
+        "org.arca.movies"
+      ],
+      "brand": "#c17b85",
+      "logo": "arcamovies.svg",
+      "width": 0.72
     },
     {
       "name": "arca domo",
       "packages": [
         "org.arca.domo"
       ],
-      "brand": "#7fb893",
-      "logo": "arcadomo.svg"
+      "brand": "#7ba4c1",
+      "logo": "arcadomo.svg",
+      "width": 0.72
     },
     {
       "name": "Emby",

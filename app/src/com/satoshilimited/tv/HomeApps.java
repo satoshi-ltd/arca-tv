@@ -94,16 +94,16 @@ final class HomeApps {
         {"spotify", "Spotify", "com.spotify.tv.android", "1DB954", "", "1"},
     };
     static final int MAX_SHELF = 5;
-    static final String PHOTOS = "org.arca.photos", MUSIC = "org.arca.music", DOMO = "org.arca.domo";
-    private static final String[] ARCA_APPS = {PHOTOS, MUSIC, DOMO};
+    static final String PHOTOS = "org.arca.photos", MUSIC = "org.arca.music", MOVIES = "org.arca.movies", DOMO = "org.arca.domo";
+    private static final String[] ARCA_APPS = {PHOTOS, MUSIC, MOVIES, DOMO};
 
     static boolean hubApp(String pkg) {
-        return PHOTOS.equals(pkg) || MUSIC.equals(pkg) || DOMO.equals(pkg);
+        return PHOTOS.equals(pkg) || MUSIC.equals(pkg) || MOVIES.equals(pkg) || DOMO.equals(pkg);
     }
 
     static boolean hubAvailable(Context c, String pkg) {
         if (DOMO.equals(pkg)) return ArcaDomo.enabled();
-        return ArcaHub.has(c, PHOTOS.equals(pkg) ? "photos" : "music");
+        return ArcaHub.has(c, PHOTOS.equals(pkg) ? "photos" : MOVIES.equals(pkg) ? "video" : "music");
     }
 
     private static Item hubItem(String pkg) {
@@ -111,7 +111,7 @@ final class HomeApps {
         it.kind = APP;
         it.key = pkg;
         it.pkg = pkg;
-        it.label = PHOTOS.equals(pkg) ? "arca Photos" : MUSIC.equals(pkg) ? "arca Music" : "arca domo";
+        it.label = PHOTOS.equals(pkg) ? "arca Photos" : MUSIC.equals(pkg) ? "arca Music" : MOVIES.equals(pkg) ? "arca Movies" : "arca domo";
         it.brand = Thumbs.brand(pkg);
         return it;
     }
@@ -213,9 +213,16 @@ final class HomeApps {
     /** The shelf's packages in order: the user's list (Settings > Shelf), or the built-in one. */
     static List<String> shelfPackages(Context c) {
         List<String> custom = Prefs.shelf();
-        if (custom != null) return custom;
         List<String> out = new ArrayList<>();
         PackageManager pm = c.getPackageManager();
+        if (custom != null) {
+            for (String pkg : custom) {
+                String current = "org.arca.media".equals(pkg) ? MOVIES : pkg;
+                boolean usable = hubApp(current) ? hubAvailable(c, current) : launchIntent(pm, current) != null;
+                if (usable && !out.contains(current)) out.add(current);
+            }
+            return out;
+        }
         for (String[] d : SHELF) if (out.size() < MAX_SHELF && launchIntent(pm, d[2]) != null) out.add(d[2]);
         return out;
     }
@@ -419,7 +426,7 @@ final class HomeApps {
         switch (it.kind) {
             case APP:
                 if (hubApp(it.pkg)) {
-                    return new Intent().setComponent(new ComponentName(c, PHOTOS.equals(it.pkg) ? PhotosExplorerActivity.class : MUSIC.equals(it.pkg) ? HubMusicActivity.class : DomoActivity.class));
+                    return new Intent().setComponent(new ComponentName(c, PHOTOS.equals(it.pkg) ? PhotosExplorerActivity.class : MUSIC.equals(it.pkg) ? HubMusicActivity.class : MOVIES.equals(it.pkg) ? HubMoviesActivity.class : DomoActivity.class));
                 }
                 Intent intent = launchIntent(c.getPackageManager(), it.pkg);
                 if (intent != null) intent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);

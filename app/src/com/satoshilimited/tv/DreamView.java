@@ -15,11 +15,11 @@ import android.view.View;
 import java.util.ArrayList;
 import java.util.List;
 
-final class DreamView extends View implements Choreographer.FrameCallback, Jellyfin.Listener, HomeData.Listener, ArcaDomo.Listener {
+final class DreamView extends View implements Choreographer.FrameCallback, Watching.Listener, HomeData.Listener, ArcaDomo.Listener {
     private static final long HOLD_MS = 40_000, FADE_MS = 8_000, FRAME_MS = 66;
     private static final int[][] PALETTE = {{0xFF3A2A2A, 0xFF121010}, {0xFF1F2A3F, 0xFF0B0E14}, {0xFF1F3A33, 0xFF0A1210}, {0xFF362A45, 0xFF100D16}};
 
-    private final Jellyfin jellyfin;
+    private final Watching watching;
     private final HomeData data;
     private final Header header;
     private final float k;
@@ -39,7 +39,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, Jelly
 
     DreamView(Context c) {
         super(c);
-        jellyfin = Jellyfin.get(c);
+        watching = Watching.get(c);
         data = HomeData.get(c);
         k = c.getResources().getDisplayMetrics().widthPixels / 1920f;
         header = new Header(k, getContext());
@@ -51,11 +51,11 @@ final class DreamView extends View implements Choreographer.FrameCallback, Jelly
         if (running) return;
         running = true;
         startedAt = SystemClock.uptimeMillis();
-        jellyfin.addListener(this);
+        watching.addListener(this);
         data.addListener(this);
         ArcaDomo.get().start(this);
         if (PhotoStream.available(getContext())) show = new PhotoSlideshow(getContext());
-        jellyfin.refresh();
+        watching.refresh();
         data.refreshIfStale();
         Choreographer.getInstance().postFrameCallback(this);
     }
@@ -67,13 +67,13 @@ final class DreamView extends View implements Choreographer.FrameCallback, Jelly
             show.close();
             show = null;
         }
-        jellyfin.removeListener(this);
+        watching.removeListener(this);
         data.removeListener(this);
         ArcaDomo.get().stop(this);
         Choreographer.getInstance().removeFrameCallback(this);
     }
 
-    @Override public void onJellyfin() {
+    @Override public void onWatching() {
     }
 
     @Override public void onData() {
@@ -139,8 +139,8 @@ final class DreamView extends View implements Choreographer.FrameCallback, Jelly
     }
 
     private void drawBackground(Canvas c, int w, int h, long elapsed) {
-        List<Jellyfin.Item> items = new ArrayList<>();
-        for (Jellyfin.Item it : jellyfin.items) if (it.image != null) items.add(it);
+        List<Watching.Card> items = new ArrayList<>();
+        for (Watching.Card it : watching.items()) if (it.image != null) items.add(it);
         int count = items.isEmpty() ? PALETTE.length : items.size();
         int index = (int) (elapsed / (HOLD_MS + FADE_MS) % count);
         if (items.isEmpty()) backdrop.showWash("palette" + index, PALETTE[index][0], 0.3f);

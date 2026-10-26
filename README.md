@@ -32,7 +32,8 @@ Connect a hub and it becomes a way to enjoy your own library from the sofa:
 | Home screen, app shortcuts, quick settings, colour screensaver | Google TV or Android TV, Android 9 or newer |
 | Weather and outdoor air | An internet connection and a selected city; optional |
 | Photos, videos, music and photo screensaver | A reachable arca hub with the corresponding libraries enabled |
-| Continue watching | Your Jellyfin server; optional |
+| Movies | A reachable arca hub with a folder with video turned on; optional |
+| Watch next | arca Movies on your hub; optional |
 | Indoor air and device controls | Your domo server and supported devices; optional |
 
 Installation uses a computer on the same network. No root is needed. arca TV changes the home screen and screensaver and disables selected built-in apps; nothing is uninstalled. On some TVs (and for the Colour buttons) it also turns on a small accessibility service that reads only the Home key and the four colour keys. **Home screen → Original** restores the recorded home screen and re-enables the apps it disabled. A watchdog attempts recovery after repeated crashes.
@@ -44,7 +45,7 @@ Installation uses a computer on the same network. No root is needed. arca TV cha
 | ![Photo viewer](docs/screens/photo-viewer.jpg) | ![Music artists and albums](docs/screens/music.jpg) |
 | **Photos.** Your pictures fill the screen; videos play inline. | **Music.** Pick an artist, an album or shuffle. |
 | ![Home screen](docs/screens/home.jpg) | ![Photo screensaver](docs/screens/screensaver.jpg) |
-| **Home.** Your apps, optional Jellyfin, weather and indoor air. | **Screensaver.** Photos from across the years. |
+| **Home.** Your apps, weather and indoor air. | **Screensaver.** Photos from across the years. |
 
 Screens show sample content. More views are in [`docs/screens/`](docs/screens/).
 
@@ -105,16 +106,16 @@ domo:                  # arca domo: your domo server
   token: ""
 ```
 
-Paste tokens into `config.yaml` yourself. Never share them or commit them. Jellyfin is not configured here: connect it in **Settings → Continue watching**, which finds the server and shows a code to approve in Jellyfin (user settings → Quick Connect). The sign-in stays on the TV, not in the APK. An older `config.properties` is moved into `config.yaml` by the next build.
+Paste tokens into `config.yaml` yourself. Never share them or commit them. An older `config.properties` is moved into `config.yaml` by the next build.
 
 ## Connect your arca library
 
 No hub yet? Start with [arca](https://arca.satoshi-ltd.com/#setup). A computer you already own can be the hub, or you can run one with Docker. Phones connect to a hub; they cannot act as one.
 
-1. **Prepare the library on your hub.** Link a phone album to a hub folder, or choose **Enable gallery** in an existing folder’s ⋯ menu. For music, choose **Enable music library** in the folder’s ⋯ menu.
+1. **Prepare the library on your hub.** Link a phone album to a hub folder, or choose **Enable gallery** in an existing folder’s ⋯ menu. For music, choose **Enable music library** in the folder’s ⋯ menu. For movies and shows, choose the video library option in the folder’s ⋯ menu.
 2. **Allow the local connection.** Keep the TV and hub on the same network. On the hub, open **Settings → Local network** and enable **Allow HTTP connections**. The TV uses this local connection; use a home network you trust.
 3. **Get a device pairing code from the hub** under **Settings → Authorized devices → Manage devices**. On the TV, open **Settings → Hub**. It finds the hub and opens its code screen directly. If none is found, try again or choose **Enter address**.
-4. **Enter the six digits on the TV.** The code is single use. Once connected, **arca Photos** and **arca Music** appear for the libraries your hub exposes; add them to the shelf in **Settings → Shortcuts**.
+4. **Enter the six digits on the TV.** The code is single use. Once connected, **arca Photos**, **arca Music** and **arca Movies** appear for the libraries your hub exposes; add them to the shelf in **Settings → Shortcuts**.
 
 The hub must be on and reachable while the TV streams photos, videos or music. arca TV is a player, not a full synchronized copy of your files. Its credential cannot edit your library. You can disconnect it on the TV or revoke it from the hub.
 
@@ -142,12 +143,14 @@ The accessibility service asks only to see the keys, not the screen: it acts on 
 | Where | Keys |
 | --- | --- |
 | Everywhere | D-pad moves, **OK** opens, **Back** goes up one level |
-| Home | **Down** goes to the shelf, **OK** on *All apps* opens the grid; with arca domo, **Up** from *Continue watching* (or from the shelf when that row is empty) focuses the weather corner and **OK** opens *Domo* |
+| Home | **Down** goes to the shelf, **OK** on *All apps* opens the grid; with arca domo, **Up** from *Watch next* (or from the shelf when that row is empty) focuses the weather corner and **OK** opens *Domo* |
 | arca domo | D-pad moves between rooms, **OK** opens one; in a room **Up/Down** moves between Power, Mode and Fan (or Start, Stop and Dock), **Left/Right** between choices, **OK** applies, **Back** returns to the rooms |
 | Photos explorer | **Up/Down** scrolls (hold to accelerate: 1 row, then 2, then 4, then a month at a time), **Left/Right** moves, hold **Left/Right** or press fast-forward/rewind to jump a month, **OK** opens a photo, **Play/Pause** starts the slideshow |
 | Photo viewer | **Left/Right** previous and next, the slideshow runs on its own from the photo you opened, **OK** pauses and resumes it (or a video), **Back** returns to the explorer |
 | Music | **Left/Right** switches tab from the tab row, **Down** enters, in *Artists* **Right** moves into the albums, **Right** past *Playlists* reaches *Shuffle all*, the first tile of an artist's albums is that artist's *Shuffle*, **OK** plays, **Back** goes up one level |
 | Now playing | **Left/Right** moves between previous, play/pause and next, **OK** presses; media keys work |
+| Movies | **Left/Right** switches tab from the tab row (**OK** on a tab, or **Up**, enters the sort pill: A–Z, Recently added, Year, Rating, applied as you move; **OK** or **Up** there returns to the tabs), **Down** enters, **OK** opens a title (or plays a Watch next card), hold **OK** on an episode to mark it watched or not watched, or on a Watch next card for Details and Remove from Watch next, **Back** goes up one level |
+| Video player | **Left/Right** seeks 10 seconds (hold to jump further: +30, +60, +120 and +240 s in steps; the dot and the time move, and the video jumps when you let go; **Up** on the bar hides the controls), **OK** pauses, **Up/Down** shows the controls (with the title, rating, certification, year and runtime, the clock and the time the video would end); *Audio* (only with two or more tracks) and *Subtitles* (only when there are any) each open a list; the *Up next* card appears in the last 30 seconds of an episode; **Back** leaves |
 | Screensaver | Any key exits |
 
 ### arca Photos
@@ -165,6 +168,14 @@ The accessibility service asks only to see the keys, not the screen: it acts on 
 - **Playlists** are the `.m3u8` files in your music folder, read only on the TV. A playlist's cover is its first track's cover.
 - The player fills the screen with the cover, blurred behind it. Music plays only inside arca Music and stops when you leave.
 
+### arca Movies
+
+- Appears when the hub has a folder with the video library on. Tabs: Home, Movies, TV Shows, Kids and Others; each shows only when it has titles. Home has *Watch next* (the hub's list: what you started, the next episode of each show, then suggestions), *Recently added* and *Kids picks*; Movies leaves out the Kids movies.
+- Posters carry a ★ rating inside; the year and the rest are on the title's page. A movie page offers Resume or Play, Start over and Mark as watched or unwatched, audio and subtitle language chips and a Related row; a show page lists Related titles, seasons and episodes, and can mark the whole show.
+- The player streams the original file from the hub (no transcoding) and passes AC3, E-AC3 and DTS to the TV or sound bar when they can take it. Audio and subtitle lists include the tracks inside the file and the `.srt` and `.vtt` files next to it. The TV saves where you are every 10 seconds, on pause and on leaving, so you can resume on any screen.
+- The TV cannot change matches, TMDB settings or the Kids mark: the hub's administrator does that.
+- **Watch next** on Home comes from arca Movies when the hub has a video library. The hub builds the row and sends every card ready to draw (title, second line, chip, artwork and progress), so the TV only paints it in the order given: the titles you started (a card plays it where you left off), the next episode of each show you follow (a NEXT chip, no progress bar, plays from the start) and suggestions (*Because you watched…*, *Added this week*, *In your library since…*, a NEW chip), which open the title's page. Hold OK and choose Remove from Watch next to take any card off the row on every device (`POST /v1/video/watch-next/remove`); it returns when you play that title again. Jellyfin and other apps are plain apps on the shelf: nothing is integrated.
+
 ### arca domo
 
 The home automation part of arca, read from your own domo server. Today it shows the air in every room and controls your air purifiers and robot vacuum.
@@ -181,11 +192,11 @@ Starts after one minute without input, on any arca screen. With a hub it shows y
 
 ## Privacy and local playback
 
-arca TV adds no accounts, ads, analytics or telemetry. Photos and music stream from your hub; Jellyfin and domo connect directly to your own servers. The hub receives the TV’s name, app version and the library folder IDs it uses. The TV’s player credential cannot edit library files and can be revoked from the hub.
+arca TV adds no accounts, ads, analytics or telemetry. Photos, music and videos stream from your hub; domo connects directly to your own server. The hub receives the TV’s name, app version and the library folder IDs it uses. The TV’s player credential cannot edit library files and can be revoked from the hub.
 
 Weather is optional: city searches send the name you enter to Open-Meteo, and forecast and outdoor-air requests send that city’s coordinates. Those requests also expose your public IP to the service. Android TV and the apps you open have their own network activity and privacy policies; arca TV does not make them local-only.
 
-The hub credential stays in the app’s private storage. The domo key is compiled into your APK from `config.yaml`; keep that APK private. The Jellyfin sign-in is made on the TV and never leaves it. Never share or commit `config.yaml`, tokens or the signing key.
+The hub credential stays in the app’s private storage. The domo key is compiled into your APK from `config.yaml`; keep that APK private. Never share or commit `config.yaml`, tokens or the signing key.
 
 ## Development
 
@@ -197,7 +208,7 @@ Build with `./build.sh`; success ends with `Built ArcaTV.apk`. There is no Java 
 
 ```
 app/                    Android app: sources, resources, assets
-  src/com/satoshilimited/tv/   Home, panel, settings, hub client, photos, music, screensaver
+  src/com/satoshilimited/tv/   Home, panel, settings, hub client, photos, music, media, screensaver
 thumbnails/             App logos on glass tiles: JSON, SVG sources, tools and tests
 docs/screens/           Product screenshots with sample content
 site/                   The website: one static page, its build script and tests
@@ -206,7 +217,7 @@ libs.txt                Pinned libraries (Media3 and its dependencies)
 config.example.yaml
 ```
 
-Key files: `HomeView` (home and panel), `SettingsActivity`, `HubActivity` (pairing), `ArcaHub` (hub client), `PhotoLibrary` and `PhotosExplorerActivity`, `HubPhotosActivity` and `PhotoSlideshow`, `HubMusicActivity` and `MusicLibrary`, `DomoActivity` and `ArcaDomo` (arca domo), `Backdrop` (backgrounds), `Glass` (container style), `IdleSaver` and `DreamView` (screensaver).
+Key files: `HomeView` (home and panel), `SettingsActivity`, `HubActivity` (pairing), `ArcaHub` (hub client), `PhotoLibrary` and `PhotosExplorerActivity`, `HubPhotosActivity` and `PhotoSlideshow`, `HubMusicActivity` and `MusicLibrary`, `HubMoviesActivity`, `VideoLibrary` and `VideoPlayerActivity` (arca Movies), `DomoActivity` and `ArcaDomo` (arca domo), `Backdrop` (backgrounds), `Glass` (container style), `IdleSaver` and `DreamView` (screensaver).
 
 ### App thumbnails
 
@@ -214,7 +225,7 @@ Key files: `HomeView` (home and panel), `SettingsActivity`, `HubActivity` (pairi
 
 ### Website
 
-`site/` is one static page in the app’s own look: HTML, CSS, Geist and a small script for the install tabs and the Copy button. The hero shows a CSS-only Home demo with a pause button and reduced-motion support, followed by the standalone home screen, what an arca hub adds, photos and music. There is no framework, tracking, cookies or third-party request, and the content security policy allows only the site's own files.
+`site/` is one static page in the app’s own look: HTML, CSS, Geist and a small script for the install tabs and the Copy button. The page leads with a CSS-only Home demo, followed by what an arca hub adds, Movies, Photos, Music and the standalone home screen. Demos run at a relaxed pace, pause out of view and show a clean still when the reader presses Pause or requests reduced motion; Play starts the tour again. Images below the hero load lazily. There is no framework, tracking, cookies or third-party request, and the content security policy allows only the site's own files.
 
 ```bash
 npm --prefix site test
