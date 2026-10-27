@@ -64,8 +64,7 @@ public class ColourButtonsActivity extends Activity {
         }
 
         private final ColourButtonsActivity activity;
-        private final Spring ringL = new Spring(0.2f, 0.9f, 0), ringT = new Spring(0.2f, 0.9f, 0), ringR = new Spring(0.2f, 0.9f, 0),
-                ringB = new Spring(0.2f, 0.9f, 0);
+        private final FocusRing focusRing = new FocusRing(this);
         private final RectF tmp = new RectF(), rowRect = new RectF(), plate = new RectF();
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG), fade = new Paint();
         private final Path clip = new Path();
@@ -139,19 +138,11 @@ public class ColourButtonsActivity extends Activity {
             lastNanos = frameTimeNanos;
             boolean moving = false;
             if (count() > 0 && w > 0) {
-                focusRect(tmp);
                 if (!ringReady) {
-                    ringL.snap(tmp.left);
-                    ringT.snap(tmp.top);
-                    ringR.snap(tmp.right);
-                    ringB.snap(tmp.bottom);
+                    focusRing.snap();
                     ringReady = true;
                 }
-                ringL.target = tmp.left;
-                ringT.target = tmp.top;
-                ringR.target = tmp.right;
-                ringB.target = tmp.bottom;
-                moving = ringL.step(dt) | ringT.step(dt) | ringR.step(dt) | ringB.step(dt);
+                moving = focusRing.moving();
             }
             if (moving) invalidate();
             Choreographer.getInstance().postFrameCallback(this);
@@ -164,12 +155,12 @@ public class ColourButtonsActivity extends Activity {
             background = new LinearGradient(0, 0, 0, h, new int[] {BG_TOP, BG_MID, BG_BOTTOM}, new float[] {0, 0.55f, 1}, Shader.TileMode.CLAMP);
             fade.setShader(new LinearGradient(0, (PICK_BOTTOM - 120) * k, 0, PICK_BOTTOM * k, 0x000E0E0E, 0xCC0E0E0E, Shader.TileMode.CLAMP));
             header = new Header(k);
-            rowTitle = Ui.text(Ui.medium, 30 * k, INK);
+            rowTitle = Ui.text(Ui.medium, Ui.BODY * k, INK);
             rowValue = Ui.text(Ui.regular, 28 * k, MUTE);
             rowValue.setTextAlign(Paint.Align.RIGHT);
-            headerPaint = Ui.text(Ui.semibold, 22 * k, MUTE);
+            headerPaint = Ui.text(Ui.semibold, Ui.TAG * k, MUTE);
             headerPaint.setLetterSpacing(0.11f);
-            hintPaint = Ui.text(Ui.regular, 22 * k, MUTE);
+            hintPaint = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             ringReady = false;
         }
 
@@ -322,6 +313,7 @@ public class ColourButtonsActivity extends Activity {
         }
 
         private void move(int dir) {
+            focusRing.pressed(0, dir);
             if (screen == LIST) {
                 focus = Math.max(0, Math.min(RemoteColours.NAMES.length - 1, focus + dir));
             } else if (col == 0) {
@@ -399,8 +391,8 @@ public class ColourButtonsActivity extends Activity {
             if (screen == LIST) drawList(c);
             else drawPick(c);
             if (ringReady && count() > 0) {
-                tmp.set(ringL.value, ringT.value, ringR.value, ringB.value);
-                Glass.row(c, tmp, k, fill, stroke, true);
+                focusRect(tmp);
+                focusRing.row(c, tmp, screen, k, fill, stroke);
             }
         }
 

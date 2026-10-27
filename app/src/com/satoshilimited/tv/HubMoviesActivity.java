@@ -44,7 +44,9 @@ public class HubMoviesActivity extends Activity {
         super.onCreate(savedInstanceState);
         Watchdog.install(this);
         Ui.init(this);
-        view = new MoviesView(this, getIntent().getStringExtra(OPEN));
+        Reveal entry = new Reveal(getIntent());
+        if (entry.present()) overridePendingTransition(0, 0);
+        view = new MoviesView(this, getIntent().getStringExtra(OPEN), entry);
         idle = new IdleSaver(this, view);
         setContentView(idle.view());
     }
@@ -77,8 +79,8 @@ public class HubMoviesActivity extends Activity {
         private static final int HOME = 0, MOVIES = 1, SHOWS = 2, KIDS = 3, OTHERS = 4;
         private static final String[] NAMES = {"Home", "Movies", "TV Shows", "Kids", "Others"};
         private static final int ROOT = 0, MOVIE = 1, SHOW = 2;
-        private static final int COLS = 7, POSTER_W = 190, POSTER_H = 285, GRID_STRIDE = 340, GRID_TOP = 330;
-        private static final int STILL_W = 300, STILL_H = 169, STILL_GAP = 28, POSTER_GAP = 61, ROW_CARDS = 64, STILL_ROW = 344, CARD_W = 400, CARD_H = 225, CARD_GAP = 32, POSTER_ROW = 400;
+        private static final int COLS = 7, POSTER_W = 190, POSTER_H = 285, GRID_STRIDE = 400, GRID_TOP = 330;
+        private static final int STILL_W = 300, STILL_H = 169, STILL_GAP = 28, POSTER_GAP = 61, ROW_CARDS = 64, STILL_ROW = 344, CARD_W = 400, CARD_H = 225, CARD_GAP = 32, POSTER_ROW = 470;
         private static final int Z_BUTTONS = 0, Z_SEASONS = 1, Z_EPISODES = 2, Z_RELATED = 3, RELATED_VISIBLE = 7;
         private static final long POLL_MS = 4000, REFRESH_MS = 30_000;
         private static final String[] SORTS = {"A–Z", "Recently added", "Year", "Rating"};
@@ -88,6 +90,9 @@ public class HubMoviesActivity extends Activity {
             VideoLibrary.Item item;
             int zone, button, season, episode, episodeScroll, relatedIndex, relatedFirst;
             float scroll, scrollTarget, relatedTop;
+            Reveal reveal;
+            boolean leaving, ghost;
+            float originX, originY;
 
             Screen(int type, VideoLibrary.Item item) {
                 this.type = type;
@@ -109,10 +114,13 @@ public class HubMoviesActivity extends Activity {
         private final Backdrop backdrop = new Backdrop();
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG), pic = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Paint spinner = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF rect = new RectF(), tmp = new RectF();
+        private final RectF rect = new RectF(), tmp = new RectF(), grow = new RectF(), focusRect = new RectF();
+        private float focusRadius;
+        private final Reveal entry;
         private final Matrix matrix = new Matrix();
         private final Map<String, StaticLayout> layouts = new HashMap<>();
         private Paint cardTitle, cardSub, tagPaint, rowTitle, rowValue, hint, chipPaint, tileTitle, tileSub, heading, huge, metaPaint, badge, messagePaint, small;
+        private Paint posterSub;
         private TextPaint bodyPaint, posterName;
         private Header header;
         private LinearGradient background;
@@ -136,7 +144,11 @@ public class HubMoviesActivity extends Activity {
         private final int[] sortBy = new int[5];
         private final Map<Integer, List<VideoLibrary.Item>> sorted = new HashMap<>();
         private final SharedPreferences ui;
-        private final ContinueMenu menu = new ContinueMenu();
+        private final ContinueMenu menu = new ContinueMenu(this);
+        private final FocusRing focusRing = new FocusRing(this);
+        private boolean ghosting;
+        private long tabAt = -1;
+        private int tabDirection;
         private String pendingOpen = "";
         private boolean direct;
 
@@ -149,9 +161,10 @@ public class HubMoviesActivity extends Activity {
             }
         };
 
-        MoviesView(HubMoviesActivity a, String open) {
+        MoviesView(HubMoviesActivity a, String open, Reveal entry) {
             super(a);
             activity = a;
+            this.entry = entry;
             pendingOpen = open == null ? "" : open;
             ui = a.getSharedPreferences("video-ui", Context.MODE_PRIVATE);
             for (int i = 0; i < sortBy.length; i++) sortBy[i] = ui.getInt("sort:" + i, 0);
@@ -257,6 +270,7 @@ public class HubMoviesActivity extends Activity {
             if (target == null) return;
             direct = true;
             open(target);
+            if (top().type != ROOT) top().reveal = entry.present() ? entry : null;
         }
 
         private void addRow(String title, List<VideoLibrary.Item> items, boolean still, int kind) {
@@ -319,6 +333,8 @@ public class HubMoviesActivity extends Activity {
             sorted.remove(kind);
             gridFocus[kind] = 0;
             gridScroll[kind] = 0;
+            tabDirection = 0;
+            tabAt = SystemClock.uptimeMillis();
         }
 
         private int currentTab() {
@@ -341,7 +357,9 @@ public class HubMoviesActivity extends Activity {
             hint = Ui.text(Ui.regular, 24 * k, MUTE);
             chipPaint = Ui.text(Ui.medium, 28 * k, INK);
             tileTitle = Ui.text(Ui.medium, 24 * k, INK);
-            tileSub = Ui.text(Ui.regular, 21 * k, MUTE);
+            tileSub = Ui.text(Ui.regular, Ui.CAPTION * k, MUTE);
+            posterSub = Ui.text(Ui.regular, 20 * k, MUTE);
+            posterSub.setTextAlign(Paint.Align.CENTER);
             tagPaint = Ui.tagPaint(k);
             cardTitle = Ui.text(Ui.semibold, 28 * k, 0xFFFFFFFF);
             cardSub = Ui.text(Ui.regular, 20 * k, 0xD9FFFFFF);
@@ -350,9 +368,9 @@ public class HubMoviesActivity extends Activity {
             huge.setLetterSpacing(-0.03f);
             metaPaint = Ui.text(Ui.regular, 28 * k, INK);
             badge = Ui.text(Ui.semibold, 18 * k, INK);
-            messagePaint = Ui.text(Ui.medium, 30 * k, MUTE);
+            messagePaint = Ui.text(Ui.medium, Ui.BODY * k, MUTE);
             messagePaint.setTextAlign(Paint.Align.CENTER);
-            small = Ui.text(Ui.medium, 22 * k, INK);
+            small = Ui.text(Ui.medium, Ui.CAPTION * k, INK);
             bodyPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
             bodyPaint.setTypeface(Ui.regular);
             bodyPaint.setTextSize(28 * k);
@@ -379,22 +397,44 @@ public class HubMoviesActivity extends Activity {
             fill.setShader(background);
             c.drawRect(0, 0, w, h, fill);
             fill.setShader(null);
+            Screen s = top();
+            if (s.leaving && !s.reveal.running()) {
+                leave(s);
+                s = top();
+            }
+            boolean revealing = s.type != ROOT && s.reveal != null && s.reveal.running();
+            focusRect.setEmpty();
             updateBackdrop();
             backdrop.draw(c, w, h, 1f);
             long now = System.currentTimeMillis();
-            Screen s = top();
             boolean animating = false;
-            if (s.type == MOVIE) {
-                animating = drawMovie(c, s);
-            } else if (s.type == SHOW) {
-                animating = drawShow(c, s);
+            if (s.type == MOVIE || s.type == SHOW) {
+                int layer = -1;
+                if (revealing) {
+                    float p = s.reveal.progress(), text = Ui.clamp((p - 0.3f) / 0.7f);
+                    if (s.ghost) drawGhost(c, stack.get(stack.size() - 2), 1f - Ui.clamp(p / 0.7f), 1f + 0.04f * p, s.originX, s.originY);
+                    layer = c.saveLayerAlpha(0, 0, w, h, Math.round(255 * text));
+                    float scale = 0.96f + 0.04f * text;
+                    c.scale(scale, scale, s.ghost ? s.originX : w / 2f, s.ghost ? s.originY : h / 2f);
+                    c.translate(0, 24 * k * (1 - text));
+                }
+                animating = s.type == MOVIE ? drawMovie(c, s) : drawShow(c, s);
+                if (layer >= 0) c.restoreToCount(layer);
             } else {
                 header.drawScreen(c, library == null || tabs.isEmpty() ? "Movies" : NAMES[currentTab()], Ui.clock(now), Ui.meridiem(now), Ui.date(now), "MOVIES");
                 if (library == null || tabs.isEmpty()) {
                     drawState(c);
                 } else {
                     drawTabs(c);
-                    animating = drawContent(c);
+                    float slide = tabSlide();
+                    if (slide < 1f) {
+                        int layer = c.saveLayerAlpha(0, 0, w, h, Math.round(255 * slide));
+                        c.translate(tabDirection * 48 * k * (1f - slide), tabDirection == 0 ? 24 * k * (1f - slide) : 0);
+                        animating = drawContent(c);
+                        c.restoreToCount(layer);
+                    } else {
+                        animating = drawContent(c);
+                    }
                 }
             }
             if (menu.isOpen() && s.type == ROOT && !tabsFocused) {
@@ -403,8 +443,40 @@ public class HubMoviesActivity extends Activity {
                 rect.set(x * k, y * k, (x + CARD_W) * k, (y + CARD_H) * k);
                 menu.draw(getContext(), c, rect, k, h, fill, stroke);
             }
-            if (running && (backdrop.active() || animating)) postInvalidateDelayed(40);
+            if (running && (revealing || s.leaving || ArtFade.settling() || tabSlide() < 1f)) postInvalidateOnAnimation();
+            else if (running && (backdrop.active() || animating)) postInvalidateDelayed(40);
             else if (running && library != null && (library.indexing != null || library.matching != null)) postInvalidateDelayed(1000);
+        }
+
+        private void ring(Canvas c, RectF r, float radius, Object group, float scale, Paint paint) {
+            if (!ghosting) focusRing.ring(c, r, radius, group, scale, paint);
+        }
+
+        private void ringRow(Canvas c, RectF r, Object group, float scale, Paint fill, Paint stroke) {
+            if (!ghosting) focusRing.row(c, r, group, scale, fill, stroke);
+        }
+
+        private float tabSlide() {
+            if (tabAt < 0) return 1f;
+            float t = Ui.clamp((SystemClock.uptimeMillis() - tabAt) / (float) Reveal.MS);
+            return 1f - (1f - t) * (1f - t) * (1f - t);
+        }
+
+        private void drawGhost(Canvas c, Screen previous, float alpha, float scale, float cx, float cy) {
+            if (alpha <= 0.01f) return;
+            ghosting = true;
+            int layer = c.saveLayerAlpha(0, 0, w, h, Math.round(255 * alpha));
+            c.scale(scale, scale, cx, cy);
+            if (previous.type == MOVIE) drawMovie(c, previous);
+            else if (previous.type == SHOW) drawShow(c, previous);
+            else if (library != null && !tabs.isEmpty()) {
+                long now = System.currentTimeMillis();
+                header.drawScreen(c, NAMES[currentTab()], Ui.clock(now), Ui.meridiem(now), Ui.date(now), "MOVIES");
+                drawTabs(c);
+                drawContent(c);
+            }
+            c.restoreToCount(layer);
+            ghosting = false;
         }
 
         private void drawState(Canvas c) {
@@ -471,7 +543,7 @@ public class HubMoviesActivity extends Activity {
                 if (i == active) {
                     fill.setColor(0x2EFFFFFF);
                     c.drawRoundRect(rect, 24 * k, 24 * k, fill);
-                    if (tabsFocused && sortFocused) Glass.ring(c, rect, 24 * k, k, stroke);
+                    if (tabsFocused && sortFocused) ring(c, rect, 24 * k, "sort", k, stroke);
                 }
                 chipPaint.setColor(i == active ? INK : MUTE);
                 c.drawText(SORTS[i], rect.left + padX * k, rect.centerY() + Ui.halfCap(chipPaint), chipPaint);
@@ -500,7 +572,7 @@ public class HubMoviesActivity extends Activity {
                 }
                 chipPaint.setColor(on ? DARK : MUTE);
                 c.drawText(names.get(i), tmp.left + 28 * k, tmp.centerY() + Ui.halfCap(chipPaint), chipPaint);
-                if (on && focused) Glass.ring(c, tmp, 28 * k, k, stroke);
+                if (on && focused) ring(c, tmp, 28 * k, "tabs", k, stroke);
                 x += width + 14;
             }
             chipPaint.setColor(INK);
@@ -561,7 +633,7 @@ public class HubMoviesActivity extends Activity {
             VideoLibrary.Item show = it.isEpisode() ? library.showOf(it) : null;
             String key = continueRow ? watching.art(it) : !it.still.isEmpty() ? it.still : !it.backdrop.isEmpty() ? it.backdrop : show != null && !show.backdrop.isEmpty() ? show.backdrop
                     : !it.poster.isEmpty() ? it.poster : show != null ? show.poster : "";
-            drawImage(c, art(key, VideoArt.SMALL), rect, 28 * k);
+            drawArt(c, key, VideoArt.SMALL, rect, 28 * k);
             float shadeTop = rect.top + rect.height() * 0.45f;
             fill.setColor(0xFF000000);
             fill.setShader(new LinearGradient(0, shadeTop, 0, rect.bottom, 0x00000000, 0xA6000000, Shader.TileMode.CLAMP));
@@ -584,10 +656,30 @@ public class HubMoviesActivity extends Activity {
                 tmp.right = tmp.left + (rect.width() - 2 * pad) * watching.progress(it);
                 c.drawRoundRect(tmp, 3 * k, 3 * k, fill);
             }
-            if (focused) Glass.ring(c, rect, 28 * k, k, stroke);
+            if (focused) {
+                if (!ghosting) focusRing.at(it);
+                ring(c, rect, 28 * k, "rows", k, stroke);
+                if (!ghosting) focusRect.set(rect);
+                focusRadius = 28 * k;
+            }
+        }
+
+        private Bitmap drawArt(Canvas c, String key, int size, RectF box, float radius) {
+            Bitmap b = art(key, size);
+            float alpha = b == null ? 0f : VideoArt.fade(key, size);
+            if (alpha < 1f) {
+                fill.setColor(VideoArt.tint(key, PLACEHOLDER));
+                c.drawRoundRect(box, radius, radius, fill);
+            }
+            if (b != null) drawImage(c, b, box, radius, alpha);
+            return b;
         }
 
         private void drawImage(Canvas c, Bitmap b, RectF box, float radius) {
+            drawImage(c, b, box, radius, 1f);
+        }
+
+        private void drawImage(Canvas c, Bitmap b, RectF box, float radius, float alpha) {
             if (b == null) {
                 fill.setColor(PLACEHOLDER);
                 c.drawRoundRect(box, radius, radius, fill);
@@ -599,14 +691,15 @@ public class HubMoviesActivity extends Activity {
             matrix.postTranslate(box.centerX() - b.getWidth() * scale / 2, box.centerY() - b.getHeight() * scale / 2);
             shader.setLocalMatrix(matrix);
             pic.setShader(shader);
+            pic.setAlpha(Math.round(255 * alpha));
             c.drawRoundRect(box, radius, radius, pic);
+            pic.setAlpha(255);
             pic.setShader(null);
         }
 
         private void drawPoster(Canvas c, VideoLibrary.Item it, float x, float y, float pw, float ph, boolean focused) {
             rect.set(x * k, y * k, (x + pw) * k, (y + ph) * k);
-            Bitmap b = art(it.poster, VideoArt.SMALL);
-            drawImage(c, b, rect, 20 * k);
+            Bitmap b = drawArt(c, it.poster, VideoArt.SMALL, rect, 20 * k);
             if (b == null && (it.poster.isEmpty() || VideoArt.absent(it.poster, VideoArt.SMALL))) {
                 StaticLayout l = layout(it.title, posterName, (int) ((pw - 32) * k), 4);
                 c.save();
@@ -624,7 +717,35 @@ public class HubMoviesActivity extends Activity {
                 tmp.right = tmp.left + (rect.width() - 24 * k) * it.progress();
                 c.drawRoundRect(tmp, 2 * k, 2 * k, fill);
             }
-            if (focused) Glass.ring(c, rect, 20 * k, k, stroke);
+            if (!focused) return;
+            if (!ghosting) focusRing.at(it);
+            ring(c, rect, 20 * k, "rows", k, stroke);
+            if (!ghosting) focusRect.set(rect);
+            focusRadius = 20 * k;
+            if (b == null) return;
+            float max = 400 * k;
+            String title = Ui.fit(it.title, tileTitle, max);
+            tileTitle.setTextAlign(Paint.Align.CENTER);
+            c.drawText(title, centred(rect.centerX(), tileTitle.measureText(title)), rect.bottom + 40 * k, tileTitle);
+            tileTitle.setTextAlign(Paint.Align.LEFT);
+            String sub = Ui.fit(posterLine(it), posterSub, max);
+            if (!sub.isEmpty()) c.drawText(sub, centred(rect.centerX(), posterSub.measureText(sub)), rect.bottom + 68 * k, posterSub);
+        }
+
+        private float centred(float cx, float width) {
+            return Math.max(112 * k + width / 2, Math.min(1808 * k - width / 2, cx));
+        }
+
+        private String posterLine(VideoLibrary.Item it) {
+            String extra;
+            if (it.isShow()) {
+                int n = it.seasons.size();
+                extra = n == 0 ? "" : n + (n == 1 ? " season" : " seasons");
+            } else {
+                extra = it.minutes() > 0 ? VideoLibrary.length(it.minutes()) : "";
+            }
+            if (it.year <= 0) return extra;
+            return extra.isEmpty() ? String.valueOf(it.year) : it.year + " · " + extra;
         }
 
         private void drawSeen(Canvas c, RectF box) {
@@ -698,7 +819,10 @@ public class HubMoviesActivity extends Activity {
                 c.drawText(value, right, base, rowValue);
                 right -= rowValue.measureText(value) + 36 * k;
                 c.drawText(Ui.fit(it.title, rowTitle, right - rect.left - 48 * k), rect.left + 24 * k, base, rowTitle);
-                if (!tabsFocused && at == focus) Glass.row(c, rect, k, fill, stroke, true);
+                if (!tabsFocused && at == focus) {
+                    if (!ghosting) focusRing.at(it);
+                    ringRow(c, rect, "list", k, fill, stroke);
+                }
             }
             return false;
         }
@@ -727,14 +851,23 @@ public class HubMoviesActivity extends Activity {
                     if (!ep.still.isEmpty()) key = ep.still;
                 }
             }
+            if ((s.type == MOVIE || s.type == SHOW) && s.zone == Z_RELATED) {
+                List<VideoLibrary.Item> related = library.related(s.item);
+                if (!related.isEmpty()) {
+                    VideoLibrary.Item r = related.get(Math.max(0, Math.min(s.relatedIndex, related.size() - 1)));
+                    if (!r.backdrop.isEmpty()) key = r.backdrop;
+                    else if (!r.poster.isEmpty()) key = r.poster;
+                }
+            }
             if (key.isEmpty() || VideoArt.absent(key, size)) {
                 accent();
                 return;
             }
-            Bitmap b = VideoArt.peek(key, size);
+            Bitmap large = VideoArt.peek(key, size), b = large;
             if (b == null && size == VideoArt.LARGE) b = VideoArt.peek(key, VideoArt.SMALL);
             if (b == null) b = art(key, size);
-            if (b != null) backdrop.showPhoto(key, b);
+            if (b == null) return;
+            backdrop.showPhoto(key, b);
         }
 
         private void accent() {
@@ -856,7 +989,7 @@ public class HubMoviesActivity extends Activity {
             if (!it.genres.isEmpty()) {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < it.genres.size() && i < 4; i++) sb.append(i == 0 ? "" : " · ").append(it.genres.get(i));
-                hint.setTextSize(26 * k);
+                hint.setTextSize(Ui.LABEL * k);
                 c.drawText(Ui.fit(sb.toString(), hint, 980 * k), x, y * k, hint);
                 y += 46;
             }
@@ -903,17 +1036,21 @@ public class HubMoviesActivity extends Activity {
             List<String[]> list = new ArrayList<>();
             if (it.isShow()) {
                 VideoLibrary.Item next = library.toResume(it);
-                if (next != null) list.add(new String[] {"resume", next.resumable() ? "Resume" : "Play", "S" + next.season + " · E" + next.episode});
-                if (next != null && (next.resumable() || !library.episodes(it).isEmpty() && library.episodes(it).get(0) != next)) list.add(new String[] {"start", "Start over", ""});
-                if (!library.episodes(it).isEmpty()) list.add(new String[] {"mark", library.seen(it) ? "Mark as unwatched" : "Mark as watched", ""});
+                if (next != null) {
+                    String code = "S" + next.season + " · E" + next.episode;
+                    if (next.resumable()) list.add(new String[] {"resume", "Resume", code + " · " + VideoLibrary.left(next), String.valueOf(next.progress())});
+                    else list.add(new String[] {"resume", "Play", code, ""});
+                }
+                if (next != null && (next.resumable() || !library.episodes(it).isEmpty() && library.episodes(it).get(0) != next)) list.add(new String[] {"start", "Start over", "", ""});
+                if (!library.episodes(it).isEmpty()) list.add(new String[] {"mark", library.seen(it) ? "Mark as unwatched" : "Mark as watched", "", ""});
             } else {
                 if (it.resumable()) {
-                    list.add(new String[] {"resume", "Resume", Ui.clockTime((long) it.position)});
-                    list.add(new String[] {"start", "Start over", ""});
+                    list.add(new String[] {"resume", "Resume", VideoLibrary.left(it), String.valueOf(it.progress())});
+                    list.add(new String[] {"start", "Start over", "", ""});
                 } else {
-                    list.add(new String[] {"resume", "Play", ""});
+                    list.add(new String[] {"resume", "Play", "", ""});
                 }
-                list.add(new String[] {"mark", it.watched ? "Mark as unwatched" : "Mark as watched", ""});
+                list.add(new String[] {"mark", it.watched ? "Mark as unwatched" : "Mark as watched", "", ""});
             }
             return list;
         }
@@ -945,7 +1082,16 @@ public class HubMoviesActivity extends Activity {
                     tileSub.setColor(MUTE);
                 }
                 chipPaint.setColor(INK);
-                if (focused) Glass.ring(c, rect, 36 * k, k, stroke);
+                if (!b[3].isEmpty()) {
+                    float done = Ui.clamp(Float.parseFloat(b[3]));
+                    bar.set(rect.left + 36 * k, rect.bottom - 14 * k, rect.right - 36 * k, rect.bottom - 10 * k);
+                    fill.setColor(focused ? 0x33141414 : 0x33FFFFFF);
+                    c.drawRoundRect(bar, 2 * k, 2 * k, fill);
+                    bar.right = bar.left + bar.width() * done;
+                    fill.setColor(focused ? DARK : 0xFFFFFFFF);
+                    if (bar.width() > 0) c.drawRoundRect(bar, 2 * k, 2 * k, fill);
+                }
+                if (focused) ring(c, rect, 36 * k, "buttons", k, stroke);
                 x += width + 18 * k;
             }
         }
@@ -968,7 +1114,7 @@ public class HubMoviesActivity extends Activity {
             if (!show.genres.isEmpty()) {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < show.genres.size() && i < 4; i++) sb.append(i == 0 ? "" : " · ").append(show.genres.get(i));
-                hint.setTextSize(26 * k);
+                hint.setTextSize(Ui.LABEL * k);
                 c.drawText(Ui.fit(sb.toString(), hint, 980 * k), x, y * k, hint);
                 hint.setTextSize(24 * k);
             }
@@ -1010,7 +1156,7 @@ public class HubMoviesActivity extends Activity {
                 VideoLibrary.Item ep = season.episodes.get(i);
                 float stillTop = top + 92;
                 rect.set(cx * k, stillTop * k, (cx + STILL_W) * k, (stillTop + STILL_H) * k);
-                drawImage(c, art(ep.still, VideoArt.SMALL), rect, 18 * k);
+                drawArt(c, ep.still, VideoArt.SMALL, rect, 18 * k);
                 if (ep.resumable() && ep.progress() > 0) {
                     fill.setColor(0x66FFFFFF);
                     bar.set(rect.left + 14 * k, rect.bottom - 20 * k, rect.right - 14 * k, rect.bottom - 14 * k);
@@ -1025,7 +1171,10 @@ public class HubMoviesActivity extends Activity {
                 if (ep.resumable()) sub = (sub.isEmpty() ? "" : sub + " · ") + VideoLibrary.left(ep);
                 c.drawText(Ui.fit(name, tileTitle, STILL_W * k), rect.left, rect.bottom + 36 * k, tileTitle);
                 c.drawText(Ui.fit(sub, tileSub, STILL_W * k), rect.left, rect.bottom + 66 * k, tileSub);
-                if (s.zone == Z_EPISODES && i == s.episode) Glass.ring(c, rect, 18 * k, k, stroke);
+                if (s.zone == Z_EPISODES && i == s.episode) {
+                    if (!ghosting) focusRing.at(ep);
+                    ring(c, rect, 18 * k, "episodes", k, stroke);
+                }
             }
             c.restore();
         }
@@ -1091,6 +1240,12 @@ public class HubMoviesActivity extends Activity {
         }
 
         private void open(VideoLibrary.Item it) {
+            Screen covered = top();
+            if (covered.leaving) {
+                covered.leaving = false;
+                covered.reveal = null;
+            }
+            float shift = top().type != ROOT ? top().scroll * k : 0;
             if (it.isShow()) {
                 Screen s = new Screen(SHOW, it);
                 VideoLibrary.Item next = library.toResume(it);
@@ -1107,9 +1262,44 @@ public class HubMoviesActivity extends Activity {
                 stack.add(s);
             } else if ("other".equals(it.kind)) {
                 play(it, false);
+                return;
             } else {
                 stack.add(new Screen(MOVIE, it));
             }
+            if (focusRect.isEmpty()) return;
+            Intent origin = new Intent();
+            grow.set(focusRect);
+            focusRect.setEmpty();
+            grow.offset(0, -shift);
+            Reveal.put(origin, grow, focusRadius);
+            Screen opened = top();
+            opened.reveal = new Reveal(origin);
+            opened.ghost = stack.size() > 1;
+            opened.originX = grow.centerX();
+            opened.originY = grow.centerY();
+        }
+
+        private void back() {
+            Screen s = top();
+            if (s.leaving) return;
+            if (s.type != ROOT && s.reveal != null) {
+                s.leaving = true;
+                s.reveal.reverse();
+                return;
+            }
+            leave(s);
+        }
+
+        private void leave(Screen s) {
+            s.leaving = false;
+            s.reveal = null;
+            if (direct && stack.size() == 2) {
+                activity.finish();
+                if (entry.present()) activity.overridePendingTransition(0, 0);
+            } else if (stack.size() > 1) stack.remove(stack.size() - 1);
+            else if (sortFocused) sortFocused = false;
+            else if (!tabsFocused && !tabs.isEmpty()) tabsFocused = true;
+            else activity.finish();
         }
 
         private void select() {
@@ -1192,6 +1382,7 @@ public class HubMoviesActivity extends Activity {
         }
 
         private void move(int dx, int dy) {
+            focusRing.pressed(dx, dy);
             if (library == null) return;
             Screen s = top();
             if (s.type == ROOT) moveRoot(dx, dy);
@@ -1213,7 +1404,14 @@ public class HubMoviesActivity extends Activity {
             }
             if (tabsFocused) {
                 if (dx > 0 && tab == tabs.size() - 1 && sortOptions() > 0 || dy < 0 && sortOptions() > 0) sortFocused = true;
-                else if (dx != 0) tab = Math.max(0, Math.min(tabs.size() - 1, tab + dx));
+                else if (dx != 0) {
+                    int next = Math.max(0, Math.min(tabs.size() - 1, tab + dx));
+                    if (next != tab) {
+                        tabDirection = dx;
+                        tabAt = SystemClock.uptimeMillis();
+                    }
+                    tab = next;
+                }
                 else if (dy > 0 && (currentTab() == HOME ? !rows.isEmpty() : count(currentTab()) > 0)) tabsFocused = false;
                 return;
             }
@@ -1377,6 +1575,7 @@ public class HubMoviesActivity extends Activity {
 
         boolean onKey(KeyEvent e) {
             if (menu.isOpen()) return menuKey(e);
+            if (top().leaving && e.getKeyCode() != KeyEvent.KEYCODE_BACK) return true;
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP:
@@ -1415,13 +1614,7 @@ public class HubMoviesActivity extends Activity {
                     if (down) {
                         if (e.getRepeatCount() == 0) backDown = true;
                     } else {
-                        if (backDown && !e.isCanceled()) {
-                            if (direct && stack.size() == 2) activity.finish();
-                            else if (stack.size() > 1) stack.remove(stack.size() - 1);
-                            else if (sortFocused) sortFocused = false;
-                            else if (!tabsFocused && !tabs.isEmpty()) tabsFocused = true;
-                            else activity.finish();
-                        }
+                        if (backDown && !e.isCanceled()) back();
                         backDown = false;
                     }
                     break;

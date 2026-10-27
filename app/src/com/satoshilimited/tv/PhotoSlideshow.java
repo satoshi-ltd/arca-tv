@@ -57,6 +57,17 @@ final class PhotoSlideshow {
         return hash;
     }
 
+    Bitmap currentBitmap() {
+        return current;
+    }
+
+    void settle() {
+        long now = SystemClock.uptimeMillis();
+        currentAt = now;
+        fadeAt = now;
+        if (paused) pausedAt = now;
+    }
+
     void close() {
         stream.close();
     }

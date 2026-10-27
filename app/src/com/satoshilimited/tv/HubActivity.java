@@ -48,6 +48,7 @@ public class HubActivity extends Activity {
     }
 
     static final class HubView extends View {
+        private final FocusRing focusRing = new FocusRing(this);
         private static final int SEARCH = 0, NOT_FOUND = 2, CODE = 3, LINKING = 4, CONNECTED = 5, ADDRESS = 6;
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, DIM = 0x73FFFFFF, CARD = 0xFF1E1E1E, KEY = 0xFF2A2A2A, WARN = 0xFFFFC266;
         private static final float CARD_L = 112, CARD_R = 1112, CARD_TOP = 330, INSET = 32;
@@ -116,10 +117,10 @@ public class HubActivity extends Activity {
             k = w / 1920f;
             background = new LinearGradient(0, 0, 0, h, new int[] {0xFF141414, 0xFF0E0E0E, 0xFF0A0A0A}, new float[] {0, 0.55f, 1}, Shader.TileMode.CLAMP);
             header = new Header(k);
-            rowTitle = Ui.text(Ui.medium, 30 * k, INK);
+            rowTitle = Ui.text(Ui.medium, Ui.BODY * k, INK);
             rowValue = Ui.text(Ui.regular, 28 * k, MUTE);
             rowValue.setTextAlign(Paint.Align.RIGHT);
-            hintPaint = Ui.text(Ui.regular, 26 * k, MUTE);
+            hintPaint = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             slotPaint = Ui.numbers(Ui.light, 84 * k, INK);
             slotPaint.setTextAlign(Paint.Align.CENTER);
             keyPaint = Ui.numbers(Ui.regular, 44 * k, INK);
@@ -374,7 +375,7 @@ public class HubActivity extends Activity {
             rowTitle.setColor(INK);
             if (!rows.isEmpty() && focus < rows.size() && rows.get(focus).focusable) {
                 rowBox(focus, rect);
-                Glass.row(c, rect, k, fill, stroke, true);
+                focusRing.row(c, rect, "rows", k, fill, stroke);
             }
             float y = (bottom + 56) * k;
             String text = state == NOT_FOUND ? "Make sure your hub is on and connected to the same network as this TV."
@@ -441,7 +442,7 @@ public class HubActivity extends Activity {
             }
             if (state != LINKING) {
                 keyBox(focus, rect);
-                Glass.focus(c, rect, 28 * k, k, fill, stroke);
+                focusRing.focus(c, rect, 28 * k, "keys", k, fill, stroke);
                 if (focus == submitIndex) drawCheck(c, rect.centerX(), rect.centerY());
                 else if (focus == 9) drawBackspace(c, rect.centerX(), rect.centerY());
                 else c.drawText(keyLabel(focus), rect.centerX(), rect.centerY() + Ui.halfCap(keyPaint), keyPaint);
@@ -457,6 +458,7 @@ public class HubActivity extends Activity {
         }
 
         private void move(int dx, int dy) {
+            focusRing.pressed(dx, dy);
             if (keypad()) {
                 if (state == LINKING) return;
                 int rowsN = (keyCount() + 2) / 3;

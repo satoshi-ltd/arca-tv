@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- Home shows the focused Watch next title in large type above the row, with its rating, year, runtime and a line of overview.
+- Screens move instead of cutting: a photo or a song cover grows into the next screen; a title, album, artist or playlist zooms from the list into its page; Back plays it in reverse. Switching tabs in Movies and Music slides the content in, and changing the sort fades the reordered grid in.
+- Movies: posters with art no longer have their title printed on top; the focused poster shows its title and year below. On title pages Resume says how much is left, with a progress line.
+- Music: Now playing lists what plays next, adds Shuffle, and takes the album's colour. When Up next hides, the title uses the whole width.
+- Posters, covers and photos fade in from their own colour instead of popping in, only when they come from the hub; art already on the TV shows at once.
+- Music covers are kept on the TV, so reopening Music does not download them again.
+- On a title page, the backdrop follows the focused Related poster.
+- The focus ring glides from one item to the next instead of jumping, and bumps against the edges.
+- One type scale across the app: the scattered in-between sizes are gone, and the small header tag is larger and easier to read from the sofa.
+
 ## 1.1.0
 
 - Holding OK on a Watch next card offers Remove from Watch next on every card, not only the ones you started. The hub keeps it off the row on every device until you play that title again. Disconnect and pairing discard old library, artwork and Watch next results, and a delayed refusal of an old credential cannot disconnect a newly paired hub.

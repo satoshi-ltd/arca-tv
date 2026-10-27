@@ -85,6 +85,7 @@ public class VideoPlayerActivity extends Activity {
     }
 
     static final class Overlay extends View implements VideoPlayer.Listener {
+        private final FocusRing focusRing = new FocusRing(this);
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, DARK = 0xFF141414;
         private static final int B_BACK = 0, B_PLAY = 1, B_FWD = 2, B_AUDIO = 3, B_SUBS = 4, B_BAR = 5;
         private static final long SAVE_MS = 10_000, HIDE_MS = 5000, UP_NEXT_SECONDS = 30, SEEK_MS = 10_000;
@@ -286,23 +287,23 @@ public class VideoPlayerActivity extends Activity {
             scrim = new LinearGradient(0, h - 460 * k, 0, h, 0x00000000, 0xD9000000, Shader.TileMode.CLAMP);
             topScrim = new LinearGradient(0, 0, 0, 380 * k, 0xD1000000, 0x00000000, Shader.TileMode.CLAMP);
             title = Ui.text(Ui.light, 56 * k, INK);
-            subtitle = Ui.text(Ui.regular, 26 * k, MUTE);
+            subtitle = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             time = Ui.numbers(Ui.regular, 24 * k, MUTE);
             metaText = Ui.text(Ui.regular, 24 * k, MUTE);
             metaBadge = Ui.text(Ui.semibold, 18 * k, INK);
             clockBig = Ui.text(Ui.light, 56 * k, INK);
             clockBig.setLetterSpacing(-0.035f);
             clockAm = Ui.text(Ui.regular, 24 * k, MUTE);
-            chip = Ui.text(Ui.medium, 26 * k, INK);
+            chip = Ui.text(Ui.medium, Ui.LABEL * k, INK);
             small = Ui.text(Ui.medium, 24 * k, INK);
             small.setTextAlign(Paint.Align.CENTER);
-            chipLabel = Ui.text(Ui.medium, 26 * k, INK);
-            messagePaint = Ui.text(Ui.medium, 30 * k, MUTE);
+            chipLabel = Ui.text(Ui.medium, Ui.LABEL * k, INK);
+            messagePaint = Ui.text(Ui.medium, Ui.BODY * k, MUTE);
             messagePaint.setTextAlign(Paint.Align.CENTER);
-            panelHead = Ui.text(Ui.semibold, 22 * k, MUTE);
+            panelHead = Ui.text(Ui.semibold, Ui.TAG * k, MUTE);
             panelHead.setLetterSpacing(0.11f);
             panelRow = Ui.text(Ui.medium, 28 * k, INK);
-            panelValue = Ui.text(Ui.regular, 22 * k, MUTE);
+            panelValue = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             panelValue.setTextAlign(Paint.Align.RIGHT);
             upLabel = Ui.text(Ui.semibold, 20 * k, MUTE);
             upLabel.setLetterSpacing(0.1f);
@@ -862,7 +863,7 @@ public class VideoPlayerActivity extends Activity {
             } else {
                 Glass.plate(c, rect, r, k, fill, stroke);
             }
-            if (focused) Glass.ringOval(c, rect, k, stroke);
+            if (focused) focusRing.oval(c, rect, "controls", k, stroke);
         }
 
         private void drawControls(Canvas c) {
@@ -880,7 +881,7 @@ public class VideoPlayerActivity extends Activity {
             c.drawCircle(left + (right - left) * fraction, barY + 4 * k, knob * k, fill);
             if (focus == B_BAR) {
                 rect.set(left + (right - left) * fraction - 13 * k, barY + 4 * k - 13 * k, left + (right - left) * fraction + 13 * k, barY + 4 * k + 13 * k);
-                Glass.ringOval(c, rect, k, stroke);
+                focusRing.oval(c, rect, "controls", k, stroke);
             }
             time.setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.clockTime(position / 1000), left, 930 * k, time);
@@ -935,7 +936,7 @@ public class VideoPlayerActivity extends Activity {
             Glass.plate(c, rect, 34 * k, k, fill, stroke);
             Icons.draw(getContext(), c, icon, rect.left + 30 * k + 14 * k, cy, 28 * k, INK);
             c.drawText(shown, rect.left + 30 * k + 28 * k + 14 * k, cy + Ui.halfCap(chipLabel), chipLabel);
-            if (focused) Glass.ring(c, rect, 34 * k, k, stroke);
+            if (focused) focusRing.ring(c, rect, 34 * k, "controls", k, stroke);
             return rect.left;
         }
 
@@ -950,9 +951,9 @@ public class VideoPlayerActivity extends Activity {
             upLabel.setColor(MUTE);
             c.drawText("UP NEXT · IN " + left + " S", x, y + 20 * k, upLabel);
             c.drawText(Ui.fit(next.title.isEmpty() ? "Episode " + next.episode : next.title, upTitle, tmp.width() - 60 * k), x, y + 66 * k, upTitle);
-            subtitle.setTextSize(22 * k);
+            subtitle.setTextSize(Ui.CAPTION * k);
             c.drawText("S" + next.season + " · E" + next.episode + (next.minutes() > 0 ? " · " + next.minutes() + " min" : ""), x, y + 100 * k, subtitle);
-            subtitle.setTextSize(26 * k);
+            subtitle.setTextSize(Ui.LABEL * k);
             float by = tmp.bottom - 22 * k - 52 * k;
             for (int i = 0; i < 2; i++) {
                 float bx = x + i * 200 * k;
@@ -966,7 +967,7 @@ public class VideoPlayerActivity extends Activity {
                 }
                 upButton.setColor(i == 0 ? DARK : INK);
                 c.drawText(i == 0 ? "Play now" : "Cancel", rect.centerX(), rect.centerY() + Ui.halfCap(upButton), upButton);
-                if (focused) Glass.ring(c, rect, 26 * k, k, stroke);
+                if (focused) focusRing.ring(c, rect, 26 * k, "upnext", k, stroke);
             }
         }
 
@@ -993,7 +994,7 @@ public class VideoPlayerActivity extends Activity {
                 }
                 VideoPlayer.Track t = (VideoPlayer.Track) o[2];
                 boolean selected = t != null && t.selected || "off".equals(o[0]) && !player.subtitlesOn();
-                if (at == panelFocus) Glass.focus(c, rect, 22 * k, k, fill, stroke);
+                if (at == panelFocus) focusRing.focus(c, rect, 22 * k, "panel", k, fill, stroke);
                 float right = rect.right - 24 * k;
                 if (selected) {
                     Icons.draw(getContext(), c, R.drawable.icon_check, right - 14 * k, rect.centerY(), 28 * k, INK);

@@ -43,13 +43,30 @@ final class VideoArt {
     };
     private static final Set<String> asked = new HashSet<>(), missing = new HashSet<>();
     private static final Map<String, List<Done>> waiting = new HashMap<>();
-    private static final Map<String, Integer> tries = new HashMap<>();
+    private static final Map<String, Integer> tries = new HashMap<>(), tints = new HashMap<>();
     private static volatile long generation;
 
     interface Done { void loaded(); }
 
     static synchronized Bitmap peek(String key, int size) {
         return key == null || key.isEmpty() ? null : MEMORY.get(id(key, size));
+    }
+
+    static float fade(String key, int size) {
+        return key == null || key.isEmpty() ? 1f : ArtFade.alpha(id(key, size));
+    }
+
+    static synchronized int tint(String key, int fallback) {
+        if (key == null || key.isEmpty()) return fallback;
+        Integer known = tints.get(key);
+        if (known != null) return known;
+        Bitmap small = MEMORY.get(id(key, SMALL));
+        if (small == null) return fallback;
+        int p = Bitmap.createScaledBitmap(small, 1, 1, true).getPixel(0, 0);
+        int color = 0xFF000000 | (((p >> 16) & 0xFF) * 5 / 10) << 16 | (((p >> 8) & 0xFF) * 5 / 10) << 8 | (p & 0xFF) * 5 / 10;
+        if (tints.size() > 512) tints.clear();
+        tints.put(key, color);
+        return color;
     }
 
     static synchronized boolean absent(String key, int size) {
@@ -85,6 +102,7 @@ final class VideoArt {
         asked.clear();
         missing.clear();
         tries.clear();
+        tints.clear();
         waiting.clear();
     }
 
@@ -96,10 +114,11 @@ final class VideoArt {
         IO.execute(() -> {
             if (requestGeneration != generation) return;
             Bitmap decoded = null;
-            boolean retry = false, unavailable = false, offline = false;
+            boolean retry = false, unavailable = false, offline = false, fetched = false;
             try {
                 File f = file(c, key, size);
                 byte[] raw = f.exists() ? Files.readAllBytes(f.toPath()) : null;
+                fetched = raw == null;
                 if (raw == null) {
                     String volume = ArcaHub.volume(c, "video");
                     String body = ArcaHub.get(c, "/v1/video/art?volume=" + URLEncoder.encode(volume, "UTF-8") + "&key=" + URLEncoder.encode(key, "UTF-8")
@@ -135,7 +154,7 @@ final class VideoArt {
                 offline = true;
             }
             final Bitmap result = decoded;
-            final boolean again = retry && result == null, gone = unavailable && result == null, lost = offline;
+            final boolean again = retry && result == null, gone = unavailable && result == null, lost = offline, fade = fetched;
             synchronized (VideoArt.class) {
                 if (requestGeneration != generation) return;
                 if (result != null) MEMORY.put(id, result);
@@ -155,6 +174,7 @@ final class VideoArt {
             if (result != null) {
                 MAIN.post(() -> {
                     if (requestGeneration != generation) return;
+                    if (fade) ArtFade.arrived(id);
                     if (done != null) done.loaded();
                     if (others != null) for (Done d : others) d.loaded();
                 });

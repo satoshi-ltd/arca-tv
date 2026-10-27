@@ -84,6 +84,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     private final Activity activity;
     private final HomeData data;
     private final Watching watching;
+    private final HomeHero hero;
     private final Click click;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final SharedPreferences ui;
@@ -97,12 +98,11 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         @Override public void click(int id) { a11yFocus(id); activate(); }
     });
 
-    private final ContinueMenu menu = new ContinueMenu();
+    private final ContinueMenu menu = new ContinueMenu(this);
     private int zone = Z_RAIL, cardIndex, railIndex, panelCol, panelRow, gridIndex;
     private boolean panelOpen, sheetOpen, running, idle, okDown, backDown;
     private final Spring panel = new Spring(0.42f, 0.92f, 0), sheet = new Spring(0.36f, 0.92f, 0), scroll = new Spring(0.34f, 1f, 0);
-    private final Spring ringL = new Spring(0.2f, 0.9f, 0), ringT = new Spring(0.2f, 0.9f, 0), ringR = new Spring(0.2f, 0.9f, 0),
-            ringB = new Spring(0.2f, 0.9f, 0), ringRadius = new Spring(0.2f, 0.9f, 0);
+    private final FocusRing focusRing = new FocusRing(this);
     private boolean ringReady, moved;
     private int ringLayer = -1;
 
@@ -159,6 +159,10 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         activity = a;
         data = HomeData.get(a);
         watching = Watching.get(a);
+        hero = new HomeHero(a, () -> {
+            wake();
+            invalidate();
+        });
         click = new Click(a);
         ui = a.getSharedPreferences("home-ui", Context.MODE_PRIVATE);
         tvInputs = (TvInputManager) a.getSystemService(Context.TV_INPUT_SERVICE);
@@ -283,6 +287,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         k = w / 1920f;
         background = new LinearGradient(0, 0, 0, h, new int[] {BG_TOP, BG_MID, BG_BOTTOM}, new float[] {0, 0.55f, 1}, Shader.TileMode.CLAMP);
         makePaints();
+        hero.size(w, h, k);
         clockMinute = -1;
         updateClock();
         layout();
@@ -296,28 +301,28 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         clockPaint.setLetterSpacing(-0.035f);
         meridiemPaint = Ui.text(Ui.regular, 36 * k, MUTE);
         datePaint = Ui.text(Ui.regular, 24 * k, MUTE);
-        cityPaint = Ui.numbers(Ui.regular, 26 * k, INK);
+        cityPaint = Ui.numbers(Ui.regular, Ui.LABEL * k, INK);
         tempPaint = Ui.numbers(Ui.light, 112 * k, INK);
         tempPaint.setLetterSpacing(-0.035f);
         infoPaint = Ui.numbers(Ui.regular, 24 * k, INK);
         sectionPaint = Ui.text(Ui.medium, 32 * k, INK);
         tagPaint = Ui.tagPaint(k);
-        headerPaint = Ui.text(Ui.semibold, 22 * k, MUTE);
+        headerPaint = Ui.text(Ui.semibold, Ui.TAG * k, MUTE);
         headerPaint.setLetterSpacing(0.11f);
         cardTitlePaint = Ui.text(Ui.semibold, 28 * k, 0xFFFFFFFF);
         cardSubPaint = Ui.text(Ui.regular, 20 * k, 0xD9FFFFFF);
-        railLabelPaint = Ui.text(Ui.medium, 26 * k, MUTE);
+        railLabelPaint = Ui.text(Ui.medium, Ui.LABEL * k, MUTE);
         railLabelPaint.setTextAlign(Paint.Align.CENTER);
         railSubPaint = Ui.text(Ui.regular, 20 * k, DIM);
         railSubPaint.setTextAlign(Paint.Align.CENTER);
-        rowTitlePaint = Ui.text(Ui.medium, 30 * k, INK);
+        rowTitlePaint = Ui.text(Ui.medium, Ui.BODY * k, INK);
         rowStatusPaint = Ui.text(Ui.regular, 24 * k, MUTE);
         rowStatusPaint.setTextAlign(Paint.Align.RIGHT);
         sheetTitlePaint = Ui.text(Ui.light, 64 * k, INK);
         sheetTitlePaint.setLetterSpacing(-0.02f);
         gridLabelPaint = Ui.text(Ui.medium, 24 * k, MUTE);
         gridLabelPaint.setTextAlign(Paint.Align.CENTER);
-        toastPaint = Ui.text(Ui.medium, 26 * k, INK);
+        toastPaint = Ui.text(Ui.medium, Ui.BODY * k, INK);
         toastPaint.setTextAlign(Paint.Align.CENTER);
         miniClockPaint = Ui.numbers(Ui.light, 72 * k, INK);
         miniClockPaint.setLetterSpacing(-0.04f);
@@ -538,6 +543,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         lastNanos = frameTimeNanos;
         boolean moving = panel.step(dt);
         moving |= backdrop.fading();
+        moving |= hero.fading() || ArtFade.settling();
         if (cardScroll.step(dt)) {
             moving = true;
             for (int i = 0; i < cardRects.length; i++) {
@@ -586,36 +592,17 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     private void snapRing() {
         ringReady = false;
         ringLayer = layerOfZone();
+        focusRing.snap();
     }
 
     private void updateRing(float dt) {
-        RectF target = focusRect();
-        if (target == null) return;
-        float radius = focusRadius(target);
-        if (!ringReady || ringLayer != layerOfZone()) {
-            ringL.snap(target.left);
-            ringT.snap(target.top);
-            ringR.snap(target.right);
-            ringB.snap(target.bottom);
-            ringRadius.snap(radius);
-            ringReady = true;
-            ringLayer = layerOfZone();
-            return;
-        }
-        ringL.target = target.left;
-        ringT.target = target.top;
-        ringR.target = target.right;
-        ringB.target = target.bottom;
-        ringRadius.target = radius;
-        ringL.step(dt);
-        ringT.step(dt);
-        ringR.step(dt);
-        ringB.step(dt);
-        ringRadius.step(dt);
+        if (focusRect() == null) return;
+        ringReady = true;
+        ringLayer = layerOfZone();
     }
 
     private boolean ringMoving() {
-        return !(ringL.settled() && ringT.settled() && ringR.settled() && ringB.settled() && ringRadius.settled());
+        return focusRing.moving();
     }
 
     private RectF focusRect() {
@@ -662,6 +649,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             int save = c.save();
             c.translate(0, -p * 60 * k);
             if (home < 0.999f) c.saveLayerAlpha(0, 0, w, h, Math.round(home * 255));
+            hero.draw(c);
             drawHome(c);
             if (zone == Z_CARDS || zone == Z_RAIL || zone == Z_WEATHER) drawRing(c);
             c.restoreToCount(save);
@@ -674,8 +662,8 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             if (panelAlpha < 0.999f) c.saveLayerAlpha(0, 0, w, h, Math.round(panelAlpha * 255));
             drawPanel(c);
             if (zone == Z_PANEL && ringReady) {
-                tmp.set(ringL.value, ringT.value, ringR.value, ringB.value);
-                Glass.row(c, tmp, k, fill, stroke, true);
+                RectF target = focusRect();
+                if (target != null) focusRing.row(c, target, ringLayer, k, fill, stroke);
             }
             c.restoreToCount(save);
         }
@@ -696,6 +684,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             Bitmap image = cards.get(cardIndex).image;
             if (image != null) backdrop.showPhoto(image, image);
             else backdrop.clear();
+            hero.focus(cards.get(cardIndex));
         } else if (zone == Z_RAIL && railIndex < rail.size() && w > 0) {
             showBrand(rail.get(railIndex), railRects[railIndex].centerX() / w);
         } else if (zone == Z_SHEET && gridIndex < others.size() && w > 0) {
@@ -706,6 +695,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         } else {
             backdrop.clear();
         }
+        if (zone != Z_CARDS || cardIndex >= cardCount() || cardIndex >= cards.size()) hero.focus(null);
         wake();
     }
 
@@ -727,9 +717,9 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
 
     private void drawRing(Canvas c) {
-        if (!ringReady) return;
-        tmp.set(ringL.value, ringT.value, ringR.value, ringB.value);
-        Glass.ring(c, tmp, ringRadius.value, k, stroke);
+        RectF target = ringReady ? focusRect() : null;
+        if (target == null) return;
+        focusRing.ring(c, target, focusRadius(target), ringLayer, k, stroke);
     }
 
     private void drawHome(Canvas c) {
@@ -766,14 +756,18 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
 
     private void drawCard(Canvas c, Watching.Card item, RectF r, int index) {
-        if (item.image != null) {
-            drawImage(c, item.image, r, CARD_RADIUS * k, false);
-        } else {
+        float arrival = item.image == null ? 0f : VideoArt.fade(item.art, VideoArt.SMALL);
+        if (arrival < 1f) {
             int[] colors = PLACEHOLDERS[index % PLACEHOLDERS.length];
             fill.setColor(0xFF000000);
         fill.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom, colors[0], colors[1], Shader.TileMode.CLAMP));
             c.drawRoundRect(r, CARD_RADIUS * k, CARD_RADIUS * k, fill);
             fill.setShader(null);
+        }
+        if (item.image != null) {
+            imagePaint.setAlpha(Math.round(arrival * 255));
+            drawImage(c, item.image, r, CARD_RADIUS * k, false);
+            imagePaint.setAlpha(255);
         }
         float shadeTop = r.top + r.height() * 0.45f;
         fill.setColor(0xFF000000);
@@ -899,7 +893,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
             railSubPaint.setTextSize(Math.max(12 * k, r.width() * 0.07f));
             c.drawText("HDMI " + it.number, r.centerX(), r.top + r.height() * 0.84f, railSubPaint);
             railLabelPaint.setColor(MUTE);
-            railLabelPaint.setTextSize(26 * k);
+            railLabelPaint.setTextSize(Ui.LABEL * k);
             railSubPaint.setColor(DIM);
             railSubPaint.setTextSize(20 * k);
         } else if (it.kind == HomeApps.ALL_APPS) {
@@ -1085,7 +1079,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         }
         Watching.Card card = cards.get(cardIndex);
         if (menu.choose() == ContinueMenu.DETAILS) {
-            if (!watching.details(activity, card)) showToast(watching.failure());
+            if (!watching.details(activity, card, cardRects[cardIndex], CARD_RADIUS * k)) showToast(watching.failure());
         } else {
             watching.hide(card.id, () -> {
                 showToast("Couldn't remove it");
@@ -1157,6 +1151,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
     }
 
     private void move(int dx, int dy) {
+        focusRing.pressed(dx, dy);
         moved = true;
         int beforeZone = zone, beforeIndex = zone == Z_CARDS ? cardIndex : zone == Z_RAIL ? railIndex : zone == Z_SHEET ? gridIndex : panelCol * 100 + panelRow;
         switch (zone) {
@@ -1327,7 +1322,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
         switch (zone) {
             case Z_CARDS:
                 List<Watching.Card> cards = watching.items();
-                if (cardIndex < cardCount() && cardIndex < cards.size() && !watching.open(activity, cards.get(cardIndex))) showToast(watching.failure());
+                if (cardIndex < cardCount() && cardIndex < cards.size() && !watching.open(activity, cards.get(cardIndex), cardRects[cardIndex], CARD_RADIUS * k)) showToast(watching.failure());
                 break;
             case Z_RAIL:
                 openItem(rail.get(railIndex), railRects[railIndex]);

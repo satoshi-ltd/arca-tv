@@ -72,8 +72,7 @@ public class SettingsActivity extends Activity {
 
         private final SettingsActivity activity;
         private final Handler handler = new Handler(Looper.getMainLooper());
-        private final Spring ringL = new Spring(0.2f, 0.9f, 0), ringT = new Spring(0.2f, 0.9f, 0), ringR = new Spring(0.2f, 0.9f, 0),
-                ringB = new Spring(0.2f, 0.9f, 0);
+        private final FocusRing focusRing = new FocusRing(this);
         private final List<String[]> shelfRows = new ArrayList<>();
         private final List<String> shelfOrder = new ArrayList<>();
         private final RectF tmp = new RectF(), rowRect = new RectF(), card = new RectF();
@@ -165,19 +164,11 @@ public class SettingsActivity extends Activity {
             lastNanos = frameTimeNanos;
             boolean moving = busy();
             if (rowCount() > 0) {
-                rowBox(Math.min(focus, rowCount() - 1), tmp);
                 if (!ringReady) {
-                    ringL.snap(tmp.left);
-                    ringT.snap(tmp.top);
-                    ringR.snap(tmp.right);
-                    ringB.snap(tmp.bottom);
+                    focusRing.snap();
                     ringReady = true;
                 }
-                ringL.target = tmp.left;
-                ringT.target = tmp.top;
-                ringR.target = tmp.right;
-                ringB.target = tmp.bottom;
-                moving |= ringL.step(dt) | ringT.step(dt) | ringR.step(dt) | ringB.step(dt);
+                moving |= focusRing.moving();
             }
             if (moving) invalidate();
             Choreographer.getInstance().postFrameCallback(this);
@@ -192,12 +183,12 @@ public class SettingsActivity extends Activity {
             titlePaint = Ui.text(Ui.light, 64 * k, INK);
             titlePaint.setLetterSpacing(-0.03f);
             crumbPaint = Ui.text(Ui.medium, 24 * k, MUTE);
-            rowTitle = Ui.text(Ui.medium, 30 * k, INK);
+            rowTitle = Ui.text(Ui.medium, Ui.BODY * k, INK);
             rowValue = Ui.text(Ui.regular, 28 * k, MUTE);
             rowValue.setTextAlign(Paint.Align.RIGHT);
-            rowSub = Ui.text(Ui.regular, 22 * k, MUTE);
-            hintPaint = Ui.text(Ui.regular, 22 * k, MUTE);
-            headerPaint = Ui.text(Ui.semibold, 22 * k, MUTE);
+            rowSub = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
+            hintPaint = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
+            headerPaint = Ui.text(Ui.semibold, Ui.TAG * k, MUTE);
             headerPaint.setLetterSpacing(0.11f);
             spinnerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             spinnerPaint.setStyle(Paint.Style.STROKE);
@@ -298,8 +289,8 @@ public class SettingsActivity extends Activity {
             fill.setShader(null);
             long now = System.currentTimeMillis();
             header.drawScreen(c, heading(), Ui.clock(now), Ui.meridiem(now), Ui.date(now));
-            rowTitle.setTextSize((screen == MAIN ? 30 : 32) * k);
-            rowValue.setTextSize((screen == MAIN ? 26 : 28) * k);
+            rowTitle.setTextSize((screen == MAIN ? Ui.BODY : Ui.HEADING) * k);
+            rowValue.setTextSize((screen == MAIN ? Ui.LABEL : Ui.BODY) * k);
             int rows = rowCount();
             float cardBottom = CARD_TOP + 2 * pad() + rows * (rowHeight() + gap()) - gap();
             card.set(CARD_L * k, CARD_TOP * k, CARD_R * k, cardBottom * k);
@@ -308,8 +299,9 @@ public class SettingsActivity extends Activity {
             else if (screen == SHELF_EDIT) drawShelf(c);
             else drawChoice(c);
             if (ringReady && rows > 0) {
-                tmp.set(ringL.value, ringT.value, ringR.value, ringB.value);
-                Glass.row(c, tmp, k, fill, stroke, true);
+                rowBox(Math.min(focus, rowCount() - 1), tmp);
+                focusRing.at(focus);
+                focusRing.row(c, tmp, screen, k, fill, stroke);
             }
             drawFooter(c, cardBottom);
         }
@@ -403,7 +395,7 @@ public class SettingsActivity extends Activity {
                 int width = Math.round(900 * k);
                 if (errorLayout == null || !error.equals(errorShown) || errorLayout.getWidth() != width) {
                     errorShown = error;
-                    TextPaint warn = new TextPaint(Ui.text(Ui.regular, 22 * k, WARN));
+                    TextPaint warn = new TextPaint(Ui.text(Ui.regular, Ui.LABEL * k, WARN));
                     errorLayout = StaticLayout.Builder.obtain(error, 0, error.length(), warn, width)
                             .setMaxLines(5).setEllipsize(TextUtils.TruncateAt.END).build();
                 }
@@ -435,6 +427,7 @@ public class SettingsActivity extends Activity {
 
         boolean onKey(KeyEvent e) {
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            focusRing.key(e);
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP:
                     if (down && grabbing) {

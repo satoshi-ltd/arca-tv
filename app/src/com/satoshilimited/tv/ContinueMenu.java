@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.view.View;
 
 final class ContinueMenu {
     static final int DETAILS = 0, REMOVE = 1;
@@ -15,6 +16,11 @@ final class ContinueMenu {
     private boolean open;
     private Paint text;
     private float textK;
+    private final FocusRing ring;
+
+    ContinueMenu(View view) {
+        ring = new FocusRing(view);
+    }
 
     boolean isOpen() {
         return open;
@@ -23,6 +29,7 @@ final class ContinueMenu {
     void open() {
         focus = 0;
         open = true;
+        ring.snap();
     }
 
     void close() {
@@ -41,7 +48,7 @@ final class ContinueMenu {
     void draw(Context context, Canvas c, RectF anchor, float k, int screenH, Paint fill, Paint stroke) {
         if (!open) return;
         if (text == null || textK != k) {
-            text = Ui.text(Ui.medium, 26 * k, 0xFFF2F2F2);
+            text = Ui.text(Ui.medium, Ui.BODY * k, 0xFFF2F2F2);
             textK = k;
         }
         float height = 2 * INSET + actions.length * ROW + (actions.length - 1) * GAP;
@@ -54,7 +61,7 @@ final class ContinueMenu {
         for (int i = 0; i < actions.length; i++) {
             float y = box.top + (INSET + i * (ROW + GAP)) * k;
             row.set(box.left + INSET * k, y, box.right - INSET * k, y + ROW * k);
-            if (i == focus) Glass.row(c, row, k, fill, stroke, true);
+            if (i == focus) ring.row(c, row, 0, k, fill, stroke);
             Icons.draw(context, c, actions[i] == DETAILS ? R.drawable.icon_film : R.drawable.icon_eye_off, row.left + 40 * k, row.centerY(), 30 * k, 0xFFF2F2F2);
             c.drawText(actions[i] == DETAILS ? "Details" : "Remove from Watch next", row.left + 76 * k, row.centerY() + Ui.halfCap(text), text);
         }

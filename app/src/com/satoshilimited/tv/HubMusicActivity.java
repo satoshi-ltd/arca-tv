@@ -76,11 +76,15 @@ public class HubMusicActivity extends Activity {
         private static final int VISIBLE = 8, COLS = 6, GRID_ROWS = 2, TAB_RECENT = 0, TAB_ARTISTS = 1, TAB_PLAYLISTS = 2;
         private static final int ROOT = 0, ARTIST = 1, ALBUM = 2, PLAYLIST = 3, NOW = 4;
         private static final String[] TABS = {"Recent", "Artists", "Playlists"};
+        private final FocusRing focusRing = new FocusRing(this);
 
         private static final class Screen {
             final int type;
             final Object ref;
             int focus, scroll;
+            RectF from;
+            long at = -1;
+            float ox, oy;
 
             Screen(int type, Object ref) {
                 this.type = type;
@@ -95,6 +99,10 @@ public class HubMusicActivity extends Activity {
         private final Map<String, Bitmap> cache = new HashMap<>();
         private final Set<String> asked = new HashSet<>();
         private final List<Screen> stack = new ArrayList<>();
+        private Screen leaving;
+        private boolean ghosting;
+        private long tabAt = -1;
+        private int tabDirection;
         private final Backdrop backdrop = new Backdrop();
         private int nowFocus = 1;
         private Paint label;
@@ -118,6 +126,18 @@ public class HubMusicActivity extends Activity {
         private final int[] rootFocus = new int[3], rootScroll = new int[3];
         private boolean inAlbums, shuffleAllFocused;
         private int albumFocus, albumScroll;
+        private static final float UP_LEFT = 1340, UP_RIGHT = 1808, UP_TOP = 220, UP_CAPTION = 56, UP_BOTTOM = 860, NOW_X = 760, NOW_RIGHT = 1280;
+        private static final long IDLE_MS = 8000, HIDE_MS = 400, TEXT_DELAY = 160, TEXT_FADE = 200;
+        private final Map<String, Integer> tints = new HashMap<>();
+        private List<MusicLibrary.Track> queueSource = new ArrayList<>(), unshuffled;
+        private List<Integer> order;
+        private boolean shuffled, inQueue, flyIn;
+        private int wakeKey = -1;
+        private final Runnable hideKick = this::invalidate;
+        private int queueFocus, queueScroll;
+        private long lastInput = SystemClock.uptimeMillis(), flyStart = -1, textFrom;
+        private String flyKey;
+        private final RectF flyFrom = new RectF(), flyTo = new RectF(), flyRect = new RectF(), nowCover = new RectF();
 
         private final Runnable tick = new Runnable() {
             @Override public void run() {
@@ -144,6 +164,7 @@ public class HubMusicActivity extends Activity {
         void pause() {
             running = false;
             handler.removeCallbacks(tick);
+            handler.removeCallbacks(hideKick);
         }
 
         void release() {
@@ -184,23 +205,23 @@ public class HubMusicActivity extends Activity {
             k = w / 1920f;
             background = new LinearGradient(0, 0, 0, h, new int[] {0xFF141414, 0xFF0E0E0E, 0xFF0A0A0A}, new float[] {0, 0.55f, 1}, Shader.TileMode.CLAMP);
             header = new Header(k);
-            rowTitle = Ui.text(Ui.medium, 30 * k, INK);
-            rowValue = Ui.text(Ui.regular, 26 * k, MUTE);
+            rowTitle = Ui.text(Ui.medium, Ui.BODY * k, INK);
+            rowValue = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             rowValue.setTextAlign(Paint.Align.RIGHT);
-            hint = Ui.text(Ui.regular, 26 * k, MUTE);
+            hint = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             chip = Ui.text(Ui.medium, 28 * k, INK);
             tileTitle = Ui.text(Ui.medium, 28 * k, INK);
             tileSub = Ui.text(Ui.regular, 24 * k, MUTE);
             heading = Ui.text(Ui.light, 44 * k, INK);
             big = Ui.numbers(Ui.light, 64 * k, INK);
             bigSub = Ui.text(Ui.regular, 34 * k, MUTE);
-            messagePaint = Ui.text(Ui.medium, 30 * k, 0xB8FFFFFF);
+            messagePaint = Ui.text(Ui.medium, Ui.BODY * k, 0xB8FFFFFF);
             spinner.setStyle(Paint.Style.STROKE);
             spinner.setStrokeWidth(4 * k);
             spinner.setColor(0xB8FFFFFF);
             initial = Ui.text(Ui.light, 96 * k, DIM);
             initial.setTextAlign(Paint.Align.CENTER);
-            label = Ui.text(Ui.semibold, 22 * k, MUTE);
+            label = Ui.text(Ui.semibold, Ui.TAG * k, MUTE);
             label.setLetterSpacing(0.11f);
         }
 
@@ -223,7 +244,13 @@ public class HubMusicActivity extends Activity {
         private void play(List<MusicLibrary.Track> list, int index, String name) {
             if (index < 0 || index >= list.size()) return;
             queue = list;
+            queueSource = list;
             queueName = name;
+            shuffled = false;
+            unshuffled = null;
+            order = null;
+            queueFocus = 0;
+            queueScroll = 0;
             start(index);
         }
 
@@ -276,43 +303,71 @@ public class HubMusicActivity extends Activity {
             if (b != null || !asked.add(id)) return b;
             covers.execute(() -> {
                 Bitmap decoded = null;
-                try {
-                    String volume = ArcaHub.volume(getContext(), "music");
-                    String body = ArcaHub.get(getContext(), "/v1/music/cover?volume=" + URLEncoder.encode(volume, "UTF-8") + "&key=" + URLEncoder.encode(key, "UTF-8") + "&size=" + (large ? "large" : "small"), 4_000_000);
-                    String data = new JSONObject(body).optString("data", "");
-                    int comma = data.indexOf(',');
-                    if (comma > 0) {
-                        byte[] raw = Base64.decode(data.substring(comma + 1), Base64.DEFAULT);
-                        decoded = BitmapFactory.decodeByteArray(raw, 0, raw.length);
+                boolean fetched = false;
+                int generation = MusicCovers.generation();
+                String volume = ArcaHub.volume(getContext(), "music");
+                byte[] raw = MusicCovers.read(getContext(), volume, key, large);
+                if (raw != null) decoded = BitmapFactory.decodeByteArray(raw, 0, raw.length);
+                if (decoded == null) {
+                    try {
+                        String body = ArcaHub.get(getContext(), "/v1/music/cover?volume=" + URLEncoder.encode(volume, "UTF-8") + "&key=" + URLEncoder.encode(key, "UTF-8") + "&size=" + (large ? "large" : "small"), 4_000_000);
+                        String data = new JSONObject(body).optString("data", "");
+                        int comma = data.indexOf(',');
+                        if (comma > 0) {
+                            raw = Base64.decode(data.substring(comma + 1), Base64.DEFAULT);
+                            decoded = BitmapFactory.decodeByteArray(raw, 0, raw.length);
+                            if (decoded != null) {
+                                MusicCovers.write(getContext(), volume, key, large, raw, generation);
+                                fetched = true;
+                            }
+                        }
+                    } catch (Exception e) {
+                        AppLog.w("arca music cover: " + e.getMessage());
                     }
-                } catch (Exception e) {
-                    AppLog.w("arca music cover: " + e.getMessage());
                 }
                 final Bitmap result = decoded;
+                final boolean fade = fetched;
+                final int tint = result == null ? 0 : average(result);
                 if (result != null) handler.post(() -> {
                     cache.put(id, result);
+                    tints.put(id, tint);
+                    if (fade) ArtFade.arrived(id);
                     invalidate();
                 });
             });
             return null;
         }
 
+        private static int average(Bitmap b) {
+            return 0xFF000000 | Bitmap.createScaledBitmap(b, 1, 1, true).getPixel(0, 0);
+        }
+
+        private int tint(String key) {
+            if (key == null || key.isEmpty()) return PLACEHOLDER;
+            Integer t = tints.get("S" + key);
+            if (t == null) t = tints.get("L" + key);
+            return t == null ? PLACEHOLDER : t;
+        }
+
         private void drawCover(Canvas c, String key, boolean large, RectF box, float radius, boolean round) {
             Bitmap b = cover(key, large);
-            if (b == null) {
-                fill.setColor(PLACEHOLDER);
+            float alpha = b == null ? 0f : ArtFade.alpha((large ? "L" : "S") + key);
+            if (alpha < 1f) {
+                fill.setColor(tint(key));
                 if (round) c.drawOval(box, fill);
                 else c.drawRoundRect(box, radius, radius, fill);
-                return;
             }
+            if (b == null) return;
             BitmapShader shader = new BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
             float scale = Math.max(box.width() / b.getWidth(), box.height() / b.getHeight());
             matrix.setScale(scale, scale);
             matrix.postTranslate(box.centerX() - b.getWidth() * scale / 2, box.centerY() - b.getHeight() * scale / 2);
             shader.setLocalMatrix(matrix);
             pic.setShader(shader);
+            pic.setAlpha(Math.round(alpha * 255));
             if (round) c.drawOval(box, pic);
             else c.drawRoundRect(box, radius, radius, pic);
+            pic.setAlpha(255);
             pic.setShader(null);
         }
 
@@ -326,17 +381,29 @@ public class HubMusicActivity extends Activity {
             backdrop.draw(c, w, h, 1f);
             long now = System.currentTimeMillis();
             Screen s = top();
-            if (s.type == NOW) header.drawLockup(c, "MUSIC");
-            else header.drawScreen(c, hero(s), Ui.clock(now), Ui.meridiem(now), Ui.date(now), "MUSIC");
-            if (s.type == NOW) drawNow(c);
-            else if (s.type == ROOT) drawRoot(c);
-            else if (s.type == ARTIST) drawArtist(c, s);
-            else drawTracks(c, s);
+            float opening = s.type == NOW ? 1f : eased(s.at), closing = leaving == null ? 1f : eased(leaving.at);
+            if (closing >= 1f) leaving = null;
+            if (s.type == NOW) {
+                header.drawLockup(c, "MUSIC");
+                drawNow(c);
+            } else if (leaving != null && leaving.type != NOW) {
+                drawZoom(c, leaving, s, 1f - closing, now);
+            } else if (opening < 1f && stack.size() > 1) {
+                drawZoom(c, s, stack.get(stack.size() - 2), opening, now);
+            } else {
+                drawBody(c, s, now);
+            }
             if (s.type != NOW && qi >= 0 && qi < queue.size()) {
                 MusicLibrary.Track t = queue.get(qi);
                 c.drawText(fit((paused ? "Paused · " : "Playing · ") + t.title + (t.artist.isEmpty() ? "" : " — " + t.artist), hint, 1500 * k), 112 * k, 1030 * k, hint);
             }
-            if (running && backdrop.active()) postInvalidateDelayed(50);
+            drawFly(c);
+            if (running && (ArtFade.settling() || flyKey != null || leaving != null || opening < 1f || tabSlide() < 1f || (s.type == NOW && (textAlpha() < 1f || hiding())))) postInvalidateOnAnimation();
+            else if (running && backdrop.active()) postInvalidateDelayed(50);
+            else if (running && s.type == NOW && remaining() > 0 && plateAlpha() >= 1f) {
+                handler.removeCallbacks(hideKick);
+                handler.postDelayed(hideKick, Math.max(16, IDLE_MS - 20 - (SystemClock.uptimeMillis() - lastInput)));
+            }
             else if (running && qi >= 0 && !paused && s.type != ROOT && s.type != NOW) postInvalidateDelayed(110);
         }
 
@@ -388,7 +455,7 @@ public class HubMusicActivity extends Activity {
                 } else Glass.plate(c, tmp, 28 * k, k, fill, stroke);
                 chip.setColor(active ? DARK : MUTE);
                 c.drawText(TABS[i], tmp.left + 28 * k, tmp.centerY() + Ui.halfCap(chip), chip);
-                if (active && tabsFocused && !shuffleAllFocused) ring(c, tmp, 28 * k);
+                if (active && tabsFocused && !shuffleAllFocused) ring(c, tmp, 28 * k, "tabs");
                 x += width + 14;
             }
             if (library != null && !library.artists.isEmpty()) {
@@ -402,9 +469,32 @@ public class HubMusicActivity extends Activity {
                 drawShuffleIcon(c, tmp.left + 36 * k, tmp.centerY(), 11 * k);
                 chip.setColor(INK);
                 c.drawText(shuffleLabel, tmp.left + 62 * k, tmp.centerY() + Ui.halfCap(chip), chip);
-                if (tabsFocused && shuffleAllFocused) ring(c, tmp, 28 * k);
+                if (tabsFocused && shuffleAllFocused) ring(c, tmp, 28 * k, "tabs");
             }
             chip.setColor(INK);
+            float slide = tabSlide();
+            if (slide >= 1f) {
+                drawRootBody(c);
+                return;
+            }
+            int layer = c.saveLayerAlpha(0, 0, w, h, Math.round(255 * slide));
+            c.translate(tabDirection * 48 * k * (1f - slide), 0);
+            drawRootBody(c);
+            c.restoreToCount(layer);
+        }
+
+        private void slideTab(int next, int direction) {
+            if (next == tab) return;
+            tab = next;
+            tabDirection = direction;
+            tabAt = SystemClock.uptimeMillis();
+        }
+
+        private float tabSlide() {
+            return eased(tabAt);
+        }
+
+        private void drawRootBody(Canvas c) {
             if (library == null) {
                 drawMessage(c, loading ? "Loading your music" : "Couldn't reach " + ArcaHub.name(getContext()));
                 return;
@@ -455,15 +545,18 @@ public class HubMusicActivity extends Activity {
                 c.drawText(fit(a.name, rowTitle, 360 * k), rect.left + 92 * k, rect.centerY() + Ui.halfCap(rowTitle), rowTitle);
                 rowValue.setTextAlign(Paint.Align.RIGHT);
                 c.drawText(a.albums.size() + (a.albums.size() == 1 ? " album" : " albums"), rect.right - 20 * k, rect.centerY() + Ui.halfCap(rowValue), rowValue);
-                Glass.row(c, rect, k, fill, stroke, focusedRow);
+                if (focusedRow) {
+                    if (!ghosting) focusRing.at(a);
+                    ringRow(c, rect, "artists");
+                }
             }
             MusicLibrary.Artist a = library.artists.get(focus);
             heading.setTextSize(36 * k);
             String shownName = fit(a.name, heading, 560 * k);
             c.drawText(shownName, SPLIT_RIGHT_L * k, 366 * k, heading);
-            tileSub.setTextSize(26 * k);
+            tileSub.setTextSize(Ui.LABEL * k);
             c.drawText("· " + a.albums.size() + (a.albums.size() == 1 ? " album" : " albums") + " · " + a.tracks.size() + (a.tracks.size() == 1 ? " track" : " tracks"), SPLIT_RIGHT_L * k + heading.measureText(shownName) + 14 * k, 366 * k, tileSub);
-            tileSub.setTextSize(22 * k);
+            tileSub.setTextSize(Ui.CAPTION * k);
             tileTitle.setTextSize(24 * k);
             int count = a.albums.size() + 1;
             int firstTile = albumScroll * ALBUM_COLS;
@@ -484,7 +577,7 @@ public class HubMusicActivity extends Activity {
                 }
                 if (inAlbums && i == albumFocus) {
                     tmp.set(rect);
-                    ring(c, tmp, 20 * k);
+                    ring(c, tmp, 20 * k, "tiles");
                 }
             }
             tileTitle.setTextSize(28 * k);
@@ -514,9 +607,10 @@ public class HubMusicActivity extends Activity {
                 tileTitle.setTextAlign(Paint.Align.LEFT);
                 tileSub.setTextAlign(Paint.Align.LEFT);
                 if (i == focus && focused) {
+                    if (!ghosting) focusRing.at(i);
                     tmp.set(rect);
-                    if (round) ringOval(c, tmp);
-                    else ring(c, tmp, 22 * k);
+                    if (round) ringOval(c, tmp, "tiles");
+                    else ring(c, tmp, 22 * k, "tiles");
                 }
             }
         }
@@ -540,7 +634,8 @@ public class HubMusicActivity extends Activity {
             }
             if (focused && focus - scroll >= 0 && focus - scroll < rows) {
                 rowBox(focus - scroll, cardLeft + Glass.PLATE_INSET, cardRight - Glass.PLATE_INSET, top, rect);
-                Glass.row(c, rect, k, fill, stroke, true);
+                if (!ghosting) focusRing.at(focus);
+                ringRow(c, rect, "tracks");
             }
         }
 
@@ -569,10 +664,10 @@ public class HubMusicActivity extends Activity {
                 MusicLibrary.Album a = (MusicLibrary.Album) s.ref;
                 tileSub.setTextSize(28 * k);
                 c.drawText(fit(a.artist + (a.year > 0 ? " · " + a.year : ""), tileSub, cover * k), 112 * k, captionBase + 46 * k, tileSub);
-                tileSub.setTextSize(26 * k);
+                tileSub.setTextSize(Ui.LABEL * k);
                 c.drawText(count + minutes(list), 112 * k, captionBase + 86 * k, tileSub);
             } else {
-                tileSub.setTextSize(26 * k);
+                tileSub.setTextSize(Ui.LABEL * k);
                 c.drawText(count + minutes(list), 112 * k, captionBase + 46 * k, tileSub);
             }
             tileSub.setTextSize(24 * k);
@@ -581,7 +676,7 @@ public class HubMusicActivity extends Activity {
             drawList(c, list.size(), s.focus, s.scroll, true, left, 1808, 262, (i, box, base) -> {
                 MusicLibrary.Track t = list.get(i);
                 float x = box.left + 20 * k;
-                if (queue == list && i == qi) {
+                if (playing(list, i)) {
                     stroke.setColor(INK);
                     stroke.setStrokeWidth(4 * k);
                     stroke.setStrokeCap(Paint.Cap.ROUND);
@@ -641,26 +736,152 @@ public class HubMusicActivity extends Activity {
             String key = backdropCover();
             if (key.isEmpty()) return;
             Bitmap b = cover(key, false);
+            if (top().type == NOW && b != null) {
+                backdrop.showWash("now\u0001" + key, tint(key), 0.3f, 0.45f, 1.4f);
+                return;
+            }
             if (b != null) backdrop.showPhoto(key, b);
+        }
+
+        private boolean playing(List<MusicLibrary.Track> list, int i) {
+            return qi >= 0 && qi < queue.size() && queueSource == list && i >= 0 && i < list.size() && i == (order == null ? qi : order.get(qi));
+        }
+
+        private void nowCoverRect(RectF out) {
+            out.set(112 * k, 220 * k, 672 * k, 780 * k);
+        }
+
+        private void startFly(String key, RectF from, RectF to, boolean in) {
+            flyKey = key;
+            flyFrom.set(from);
+            flyTo.set(to);
+            flyStart = SystemClock.uptimeMillis();
+            flyIn = in;
+        }
+
+        private float flyProgress() {
+            float t = Math.min(1f, (SystemClock.uptimeMillis() - flyStart) / (float) Reveal.MS);
+            return 1f - (1f - t) * (1f - t) * (1f - t);
+        }
+
+        private void drawFly(Canvas c) {
+            if (flyKey == null) return;
+            float p = flyProgress();
+            flyRect.set(flyFrom.left + (flyTo.left - flyFrom.left) * p, flyFrom.top + (flyTo.top - flyFrom.top) * p, flyFrom.right + (flyTo.right - flyFrom.right) * p, flyFrom.bottom + (flyTo.bottom - flyFrom.bottom) * p);
+            fill.setColor(0x66000000);
+            tmp.set(flyRect.left, flyRect.top + 18 * k * p, flyRect.right, flyRect.bottom + 18 * k * p);
+            c.drawRoundRect(tmp, 24 * k, 24 * k, fill);
+            drawCover(c, flyKey, true, flyRect, 24 * k, false);
+            if (SystemClock.uptimeMillis() - flyStart >= Reveal.MS) flyKey = null;
+        }
+
+        private float textAlpha() {
+            if (textFrom == 0) return 1f;
+            return Math.max(0f, Math.min(1f, (SystemClock.uptimeMillis() - textFrom - TEXT_DELAY) / (float) TEXT_FADE));
+        }
+
+        private float plateAlpha() {
+            long idle = SystemClock.uptimeMillis() - lastInput;
+            if (idle < IDLE_MS) return 1f;
+            return Math.max(0f, 1f - (idle - IDLE_MS) / (float) HIDE_MS);
+        }
+
+        private boolean hiding() {
+            long idle = SystemClock.uptimeMillis() - lastInput;
+            return idle >= IDLE_MS - 20 && idle < IDLE_MS + HIDE_MS + 20;
+        }
+
+        private int remaining() {
+            return qi < 0 ? 0 : Math.max(0, queue.size() - qi - 1);
+        }
+
+        private int upRows() {
+            return (int) ((UP_BOTTOM - UP_TOP - 2 * Glass.PLATE_INSET - UP_CAPTION + Glass.ROW_GAP) / (Glass.ROW_H + Glass.ROW_GAP));
+        }
+
+        private void openNow(RectF from, String key) {
+            nowFocus = 1;
+            inQueue = false;
+            queueFocus = 0;
+            queueScroll = 0;
+            lastInput = SystemClock.uptimeMillis();
+            Screen n = new Screen(NOW, null);
+            if (from != null && key != null && !key.isEmpty()) {
+                n.from = new RectF(from);
+                nowCoverRect(nowCover);
+                startFly(key, from, nowCover, true);
+                textFrom = flyStart;
+            } else {
+                textFrom = 0;
+            }
+            stack.add(n);
+        }
+
+        private void closeNow() {
+            Screen n = stack.remove(stack.size() - 1);
+            inQueue = false;
+            if (n.from != null && qi >= 0 && qi < queue.size()) {
+                nowCoverRect(nowCover);
+                startFly(queue.get(qi).cover, nowCover, n.from, false);
+            }
+        }
+
+        private void toggleShuffle() {
+            if (qi < 0 || qi >= queue.size()) return;
+            if (!shuffled) {
+                unshuffled = queue;
+                List<Integer> positions = new ArrayList<>();
+                for (int i = 0; i < queue.size(); i++) positions.add(i);
+                List<Integer> rest = new ArrayList<>(positions.subList(qi + 1, positions.size()));
+                java.util.Collections.shuffle(rest);
+                order = new ArrayList<>(positions.subList(0, qi + 1));
+                order.addAll(rest);
+                List<MusicLibrary.Track> next = new ArrayList<>();
+                for (int at : order) next.add(unshuffled.get(at));
+                queue = next;
+                shuffled = true;
+            } else {
+                if (unshuffled != null && order != null) {
+                    qi = order.get(qi);
+                    queue = unshuffled;
+                }
+                shuffled = false;
+                unshuffled = null;
+                order = null;
+            }
+            queueFocus = 0;
+            queueScroll = 0;
+        }
+
+        private void coverBox(Screen s, RectF out) {
+            float cover = s.type == ALBUM ? 380 : 320;
+            out.set(112 * k, 262 * k, (112 + cover) * k, (262 + cover) * k);
         }
 
         private void drawNow(Canvas c) {
             if (qi < 0 || qi >= queue.size()) return;
+            if (inQueue && remaining() == 0) inQueue = false;
             MusicLibrary.Track t = queue.get(qi);
             cover(t.cover, true);
-            rect.set(112 * k, 250 * k, 692 * k, 830 * k);
-            fill.setColor(0x66000000);
-            tmp.set(rect.left, rect.top + 18 * k, rect.right, rect.bottom + 18 * k);
-            c.drawRoundRect(tmp, 26 * k, 26 * k, fill);
-            drawCover(c, t.cover, true, rect, 24 * k, false);
-            float x = 800 * k, right = 1808 * k;
+            nowCoverRect(rect);
+            if (!(flyKey != null && flyIn)) {
+                fill.setColor(0x66000000);
+                tmp.set(rect.left, rect.top + 18 * k, rect.right, rect.bottom + 18 * k);
+                c.drawRoundRect(tmp, 26 * k, 26 * k, fill);
+                drawCover(c, t.cover, true, rect, 24 * k, false);
+            }
+            float textA = textAlpha();
+            int saved = textA < 1f ? c.saveLayerAlpha(NOW_X * k - 20 * k, 0, w, h, Math.round(textA * 255)) : -1;
+            float x = NOW_X * k, right = NOW_RIGHT * k;
+            float open = remaining() > 0 ? 1f - plateAlpha() : 1f, wide = (NOW_RIGHT + (UP_RIGHT - NOW_RIGHT) * open) * k;
             rowValue.setTextAlign(Paint.Align.LEFT);
             label.setColor(MUTE);
-            c.drawText("NOW PLAYING", x, 300 * k, label);
-            c.drawText(fit(t.title, big, right - x), x - Ui.leftBearing(big, t.title), 384 * k, big);
-            c.drawText(fit(t.artist, bigSub, right - x), x, 438 * k, bigSub);
-            tileSub.setTextSize(26 * k);
-            if (!t.album.isEmpty()) c.drawText(fit(t.album, tileSub, right - x), x, 482 * k, tileSub);
+            c.drawText("NOW PLAYING", x, 290 * k, label);
+            c.drawText(fit(t.title, big, wide - x), x - Ui.leftBearing(big, t.title), 372 * k, big);
+            c.drawText(fit(t.artist, bigSub, wide - x), x, 426 * k, bigSub);
+            tileSub.setTextSize(Ui.LABEL * k);
+            String album = t.album + (t.year > 0 ? (t.album.isEmpty() ? "" : " · ") + t.year : "");
+            if (!album.isEmpty()) c.drawText(fit(album, tileSub, wide - x), x, 470 * k, tileSub);
             int position = 0, duration = t.seconds * 1000;
             try {
                 if (player != null) {
@@ -670,7 +891,7 @@ public class HubMusicActivity extends Activity {
                 }
             } catch (IllegalStateException ignored) {
             }
-            float barTop = 548 * k;
+            float barTop = 540 * k;
             fill.setColor(0x33FFFFFF);
             tmp.set(x, barTop, right, barTop + 6 * k);
             c.drawRoundRect(tmp, 3 * k, 3 * k, fill);
@@ -679,16 +900,53 @@ public class HubMusicActivity extends Activity {
                 tmp.set(x, barTop, x + (right - x) * Math.min(1f, position / (float) duration), barTop + 6 * k);
                 c.drawRoundRect(tmp, 3 * k, 3 * k, fill);
             }
-            tileSub.setTextSize(26 * k);
             c.drawText(time(position / 1000), x, barTop + 50 * k, tileSub);
             tileSub.setTextAlign(Paint.Align.RIGHT);
             c.drawText(time(duration / 1000), right, barTop + 50 * k, tileSub);
             tileSub.setTextAlign(Paint.Align.LEFT);
             tileSub.setTextSize(24 * k);
-            float cy = 706 * k;
+            float cy = 690 * k;
             drawButton(c, 0, x + 40 * k, cy, 40 * k, false);
-            drawButton(c, 1, x + 40 * k + 40 * k + 28 * k + 52 * k, cy, 52 * k, true);
-            drawButton(c, 2, x + 40 * k + 40 * k + 28 * k + 104 * k + 28 * k + 40 * k, cy, 40 * k, false);
+            drawButton(c, 1, x + 160 * k, cy, 52 * k, true);
+            drawButton(c, 2, x + 280 * k, cy, 40 * k, false);
+            drawButton(c, 3, x + 408 * k, cy, 40 * k, false);
+            drawUpNext(c);
+            if (saved >= 0) c.restoreToCount(saved);
+        }
+
+        private void drawUpNext(Canvas c) {
+            int left = remaining();
+            float alpha = plateAlpha();
+            if (left == 0 || alpha <= 0f) return;
+            int saved = alpha < 1f ? c.saveLayerAlpha(UP_LEFT * k - 20 * k, UP_TOP * k - 20 * k, UP_RIGHT * k + 20 * k, UP_BOTTOM * k + 20 * k, Math.round(alpha * 255)) : -1;
+            int rows = Math.min(upRows(), left);
+            float bottom = UP_TOP + 2 * Glass.PLATE_INSET + UP_CAPTION + rows * (Glass.ROW_H + Glass.ROW_GAP) - Glass.ROW_GAP;
+            tmp.set(UP_LEFT * k, UP_TOP * k, UP_RIGHT * k, bottom * k);
+            plate(c, tmp);
+            label.setColor(MUTE);
+            label.setTextSize(18 * k);
+            c.drawText("UP NEXT", (UP_LEFT + 28) * k, (UP_TOP + Glass.PLATE_INSET + 30) * k, label);
+            label.setTextSize(Ui.TAG * k);
+            rowTitle.setTextSize(Ui.LABEL * k);
+            rowValue.setTextSize(Ui.CAPTION * k);
+            rowValue.setTextAlign(Paint.Align.RIGHT);
+            for (int i = 0; i < rows; i++) {
+                int at = queueScroll + i;
+                if (at >= left) break;
+                MusicLibrary.Track t = queue.get(qi + 1 + at);
+                float y = UP_TOP + Glass.PLATE_INSET + UP_CAPTION + i * (Glass.ROW_H + Glass.ROW_GAP);
+                rect.set((UP_LEFT + Glass.PLATE_INSET) * k, y * k, (UP_RIGHT - Glass.PLATE_INSET) * k, (y + Glass.ROW_H) * k);
+                String d = time(t.seconds);
+                float right = rect.right - 20 * k;
+                c.drawText(d, right, rect.centerY() + Ui.halfCap(rowValue), rowValue);
+                rowTitle.setColor(at < 3 ? INK : MUTE);
+                c.drawText(fit(t.title, rowTitle, right - rowValue.measureText(d) - 24 * k - rect.left - 20 * k), rect.left + 20 * k, rect.centerY() + Ui.halfCap(rowTitle), rowTitle);
+                if (inQueue && at == queueFocus) focusRing.row(c, rect, "queue", k, fill, stroke);
+            }
+            rowTitle.setColor(INK);
+            rowTitle.setTextSize(Ui.BODY * k);
+            rowValue.setTextSize(Ui.LABEL * k);
+            if (saved >= 0) c.restoreToCount(saved);
         }
 
         private void drawButton(Canvas c, int index, float cx, float cy, float r, boolean primary) {
@@ -699,24 +957,74 @@ public class HubMusicActivity extends Activity {
                 stroke.setColor(0x26FFFFFF);
                 c.drawCircle(cx, cy, r, stroke);
             }
-            int icon = index == 0 ? R.drawable.icon_previous : index == 2 ? R.drawable.icon_next : paused ? R.drawable.icon_play : R.drawable.icon_pause;
-            Icons.draw(getContext(), c, icon, cx, cy, r * 0.9f, primary ? DARK : INK);
-            if (index == nowFocus) {
+            if (index == 3) {
+                Icons.draw(getContext(), c, R.drawable.icon_shuffle, cx, cy, r * 0.8f, shuffled ? INK : MUTE);
+                if (shuffled) {
+                    fill.setColor(INK);
+                    c.drawCircle(cx, cy + r + 14 * k, 4 * k, fill);
+                }
+            } else {
+                int icon = index == 0 ? R.drawable.icon_previous : index == 2 ? R.drawable.icon_next : paused ? R.drawable.icon_play : R.drawable.icon_pause;
+                Icons.draw(getContext(), c, icon, cx, cy, r * 0.9f, primary ? DARK : INK);
+            }
+            if (index == nowFocus && !inQueue) {
+                tmp.set(cx - r, cy - r, cx + r, cy + r);
+                RectF at = focusRing.place(tmp, r, "controls", k);
+                float rx = at.centerX(), ry = at.centerY(), rr = at.height() / 2;
                 stroke.setStrokeWidth(6 * k);
                 stroke.setColor(0xFF0E0E0E);
-                c.drawCircle(cx, cy, r + 5 * k, stroke);
+                c.drawCircle(rx, ry, rr + 5 * k, stroke);
                 stroke.setStrokeWidth(3 * k);
                 stroke.setColor(INK);
-                c.drawCircle(cx, cy, r + 9 * k, stroke);
+                c.drawCircle(rx, ry, rr + 9 * k, stroke);
             }
         }
 
-        private void ring(Canvas c, RectF box, float radius) {
-            Glass.ring(c, box, radius, k, stroke);
+        private void ring(Canvas c, RectF box, float radius, Object key) {
+            if (!ghosting) focusRing.ring(c, box, radius, key, k, stroke);
         }
 
-        private void ringOval(Canvas c, RectF box) {
-            Glass.ringOval(c, box, k, stroke);
+        private void ringOval(Canvas c, RectF box, Object key) {
+            if (!ghosting) focusRing.oval(c, box, key, k, stroke);
+        }
+
+        private void ringRow(Canvas c, RectF box, Object key) {
+            if (!ghosting) focusRing.row(c, box, key, k, fill, stroke);
+        }
+
+        private float eased(long since) {
+            if (since < 0) return 1f;
+            float t = Ui.clamp((SystemClock.uptimeMillis() - since) / (float) Reveal.MS);
+            return 1f - (1f - t) * (1f - t) * (1f - t);
+        }
+
+        private void drawBody(Canvas c, Screen s, long now) {
+            header.drawScreen(c, hero(s), Ui.clock(now), Ui.meridiem(now), Ui.date(now), "MUSIC");
+            if (s.type == ROOT) drawRoot(c);
+            else if (s.type == ARTIST) drawArtist(c, s);
+            else drawTracks(c, s);
+        }
+
+        private void drawZoom(Canvas c, Screen front, Screen behind, float p, long now) {
+            if (behind != null) {
+                float alpha = 1f - Ui.clamp(p / 0.7f);
+                if (alpha > 0.01f) {
+                    ghosting = true;
+                    int layer = c.saveLayerAlpha(0, 0, w, h, Math.round(255 * alpha));
+                    float scale = 1f + 0.04f * p;
+                    c.scale(scale, scale, front.ox, front.oy);
+                    drawBody(c, behind, now);
+                    c.restoreToCount(layer);
+                    ghosting = false;
+                }
+            }
+            float text = Ui.clamp((p - 0.3f) / 0.7f);
+            int layer = c.saveLayerAlpha(0, 0, w, h, Math.round(255 * text));
+            float scale = 0.96f + 0.04f * text;
+            c.scale(scale, scale, front.ox, front.oy);
+            c.translate(0, 24 * k * (1 - text));
+            drawBody(c, front, now);
+            c.restoreToCount(layer);
         }
 
         private void drawShuffleIcon(Canvas c, float cx, float cy, float r) {
@@ -757,15 +1065,39 @@ public class HubMusicActivity extends Activity {
         }
 
         private void open(int type, Object ref) {
-            stack.add(new Screen(type, ref));
+            Screen s = new Screen(type, ref);
+            s.at = SystemClock.uptimeMillis();
+            if (focusRing.current(tmp)) {
+                s.ox = tmp.centerX();
+                s.oy = tmp.centerY();
+            } else {
+                s.ox = w / 2f;
+                s.oy = h / 2f;
+            }
+            stack.add(s);
+        }
+
+        private void pop() {
+            leaving = stack.remove(stack.size() - 1);
+            leaving.at = SystemClock.uptimeMillis();
         }
 
         private void select() {
             Screen s = top();
             if (s.type == NOW) {
+                if (inQueue) {
+                    if (queueFocus < remaining()) {
+                        start(qi + 1 + queueFocus);
+                        queueFocus = 0;
+                        queueScroll = 0;
+                        if (remaining() == 0) inQueue = false;
+                    }
+                    return;
+                }
                 if (nowFocus == 0 && qi > 0) start(qi - 1);
                 else if (nowFocus == 2 && qi + 1 < queue.size()) start(qi + 1);
                 else if (nowFocus == 1) toggle();
+                else if (nowFocus == 3) toggleShuffle();
                 return;
             }
             if (s.type == ROOT) {
@@ -780,8 +1112,7 @@ public class HubMusicActivity extends Activity {
                 if (tabsFocused) {
                     if (shuffleAllFocused) {
                         playShuffled(allTracks(), "Shuffling your library");
-                        nowFocus = 1;
-                        open(NOW, null);
+                        openNow(null, null);
                     }
                     return;
                 }
@@ -796,8 +1127,7 @@ public class HubMusicActivity extends Activity {
                         albumScroll = 0;
                     } else if (albumFocus == 0) {
                         playShuffled(a.tracks, "Shuffling " + a.name);
-                        nowFocus = 1;
-                        open(NOW, null);
+                        openNow(null, null);
                     } else if (albumFocus - 1 < a.albums.size()) open(ALBUM, a.albums.get(albumFocus - 1));
                 } else open(PLAYLIST, library.playlists.get(f));
                 return;
@@ -809,21 +1139,38 @@ public class HubMusicActivity extends Activity {
             }
             List<MusicLibrary.Track> list = tracksOf(s);
             if (s.focus >= list.size()) return;
-            if (queue == list && qi == s.focus) {
-                nowFocus = 1;
-                open(NOW, null);
+            coverBox(s, tmp);
+            if (playing(list, s.focus)) {
+                openNow(tmp, queue.get(qi).cover);
                 return;
             }
             String name = s.type == ALBUM ? "Next in this album" : "Next in this playlist";
             play(list, s.focus, name);
-            nowFocus = 1;
-            open(NOW, null);
+            openNow(tmp, qi >= 0 && qi < queue.size() ? queue.get(qi).cover : null);
         }
 
         private void move(int dx, int dy) {
+            focusRing.pressed(dx, dy);
             Screen s = top();
             if (s.type == NOW) {
-                nowFocus = Math.max(0, Math.min(2, nowFocus + dx));
+                if (inQueue) {
+                    if (dx < 0) {
+                        inQueue = false;
+                        nowFocus = 3;
+                    } else if (dy != 0) {
+                        queueFocus = Math.max(0, Math.min(remaining() - 1, queueFocus + dy));
+                        if (queueFocus < queueScroll) queueScroll = queueFocus;
+                        if (queueFocus >= queueScroll + upRows()) queueScroll = queueFocus - upRows() + 1;
+                    }
+                    return;
+                }
+                if (dx > 0 && nowFocus == 3 && remaining() > 0) {
+                    inQueue = true;
+                    queueFocus = Math.min(queueFocus, remaining() - 1);
+                    if (queueFocus < queueScroll || queueFocus >= queueScroll + upRows()) queueScroll = queueFocus;
+                    return;
+                }
+                nowFocus = Math.max(0, Math.min(3, nowFocus + dx));
                 return;
             }
             if (s.type == ARTIST) {
@@ -854,13 +1201,13 @@ public class HubMusicActivity extends Activity {
                 if (dx > 0) {
                     if (hasShuffle && !shuffleAllFocused && tab == TABS.length - 1) shuffleAllFocused = true;
                     else if (!shuffleAllFocused) {
-                        tab = Math.min(TABS.length - 1, tab + 1);
+                        slideTab(Math.min(TABS.length - 1, tab + 1), 1);
                         inAlbums = false;
                     }
                 } else if (dx < 0) {
                     if (shuffleAllFocused) shuffleAllFocused = false;
                     else {
-                        tab = Math.max(0, tab - 1);
+                        slideTab(Math.max(0, tab - 1), -1);
                         inAlbums = false;
                     }
                 } else if (dy > 0 && rootCount() > 0 && !shuffleAllFocused) {
@@ -925,8 +1272,25 @@ public class HubMusicActivity extends Activity {
             if (row >= rootScroll[tab] + GRID_ROWS) rootScroll[tab] = row - GRID_ROWS + 1;
         }
 
+        private boolean navigation(int code) {
+            return code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT
+                    || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        }
+
         boolean onKey(KeyEvent e) {
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            if (!down && e.getKeyCode() == wakeKey) {
+                wakeKey = -1;
+                return true;
+            }
+            if (inQueue && remaining() == 0) inQueue = false;
+            if (down && e.getRepeatCount() == 0 && navigation(e.getKeyCode()) && top().type == NOW && remaining() > 0 && plateAlpha() <= 0f) {
+                lastInput = SystemClock.uptimeMillis();
+                wakeKey = e.getKeyCode();
+                invalidate();
+                return true;
+            }
+            if (down) lastInput = SystemClock.uptimeMillis();
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP:
                     if (down) move(0, -1);
@@ -963,9 +1327,13 @@ public class HubMusicActivity extends Activity {
                         if (e.getRepeatCount() == 0) backDown = true;
                     } else {
                         if (backDown && !e.isCanceled()) {
-                            if (stack.size() == 1 && tab == TAB_ARTISTS && inAlbums) inAlbums = false;
+                            if (top().type == NOW && inQueue) {
+                                inQueue = false;
+                                nowFocus = 3;
+                            } else if (top().type == NOW && stack.size() > 1) closeNow();
+                            else if (stack.size() == 1 && tab == TAB_ARTISTS && inAlbums) inAlbums = false;
                             else if (stack.size() == 1 && !tabsFocused && rootCount() > 0) tabsFocused = true;
-                            else if (stack.size() > 1) stack.remove(stack.size() - 1);
+                            else if (stack.size() > 1) pop();
                             else activity.finish();
                         }
                         backDown = false;

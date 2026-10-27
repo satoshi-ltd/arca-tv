@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -20,7 +21,7 @@ final class Watching {
     static final int LIMIT = 8;
 
     static final class Card {
-        String id, title, sub, tag;
+        String id, title, sub, tag, art;
         float progress;
         boolean next, page;
         Bitmap image;
@@ -122,6 +123,7 @@ final class Watching {
             it.page = row.page(v);
             it.tag = row.tag(v);
             it.progress = row.progress(v);
+            it.art = row.art(v);
             Card old = known.get(it.id);
             if (old != null) it.image = old.image;
             fresh.add(it);
@@ -161,8 +163,15 @@ final class Watching {
     }
 
     boolean details(Activity a, Card it) {
+        return details(a, it, null, 0);
+    }
+
+    boolean details(Activity a, Card it, RectF from, float radius) {
         try {
-            a.startActivity(new Intent(a, HubMoviesActivity.class).putExtra(HubMoviesActivity.OPEN, it.id));
+            Intent intent = new Intent(a, HubMoviesActivity.class).putExtra(HubMoviesActivity.OPEN, it.id);
+            if (from != null) Reveal.put(intent, from, radius);
+            a.startActivity(intent);
+            if (from != null) a.overridePendingTransition(0, 0);
             return true;
         } catch (RuntimeException e) {
             AppLog.w("couldn't open: " + e.getMessage());
@@ -171,7 +180,11 @@ final class Watching {
     }
 
     boolean open(Activity a, Card it) {
-        if (it.page) return details(a, it);
+        return open(a, it, null, 0);
+    }
+
+    boolean open(Activity a, Card it, RectF from, float radius) {
+        if (it.page) return details(a, it, from, radius);
         try {
             a.startActivity(new Intent(a, VideoPlayerActivity.class).putExtra(VideoPlayerActivity.ID, it.id).putExtra(VideoPlayerActivity.FROM_START, it.next));
             return true;

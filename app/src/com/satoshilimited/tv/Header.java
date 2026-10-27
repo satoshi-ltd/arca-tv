@@ -34,7 +34,7 @@ final class Header {
         temp.setLetterSpacing(-0.035f);
         meridiem = Ui.text(Ui.regular, 36 * k, MUTE);
         date = Ui.text(Ui.regular, 24 * k, MUTE);
-        forecast = Ui.numbers(Ui.regular, 26 * k, INK);
+        forecast = Ui.numbers(Ui.regular, Ui.LABEL * k, INK);
         forecast.setTextAlign(Paint.Align.RIGHT);
         facts = Ui.numbers(Ui.regular, 24 * k, INK);
         factsMute = Ui.numbers(Ui.regular, 24 * k, MUTE);
@@ -151,7 +151,7 @@ final class Header {
         screenTitle = Ui.numbers(Ui.light, 72 * k, INK);
         screenTitle.setLetterSpacing(-0.03f);
         screenMeridiem = Ui.text(Ui.regular, 28 * k, MUTE);
-        tagName = Ui.text(Ui.semibold, 15 * k, 0xFF141414);
+        tagName = Ui.text(Ui.semibold, Ui.TAG * k, 0xFF141414);
         tagName.setLetterSpacing(0.06f);
     }
 
@@ -162,15 +162,15 @@ final class Header {
     void drawLockupAt(Canvas c, String tag, float left, float centre, float scale) {
         ensureScreenPaints();
         float u = k * scale;
-        tagName.setTextSize(15 * u);
+        tagName.setTextSize(Ui.TAG * u);
         drawMark(c, left, centre - 13 * u, 26 * u);
         float x = left + 24.2f * u + 10 * u;
-        float tagWidth = tagName.measureText(tag) + 20 * u, tagHeight = 27 * u;
+        float tagWidth = tagName.measureText(tag) + 20 * u, tagHeight = 30 * u;
         oval.set(x, centre - tagHeight / 2, x + tagWidth, centre + tagHeight / 2);
         markPaint.setColor(INK);
         c.drawRoundRect(oval, 8 * u, 8 * u, markPaint);
         c.drawText(tag, x + 10 * u, centre + Ui.halfCap(tagName), tagName);
-        tagName.setTextSize(15 * k);
+        tagName.setTextSize(Ui.TAG * k);
     }
 
     void drawScreen(Canvas c, String title, String time, String ampm, String day) {

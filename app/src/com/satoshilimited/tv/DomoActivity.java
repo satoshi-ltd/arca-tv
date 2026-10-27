@@ -47,6 +47,7 @@ public class DomoActivity extends Activity {
     }
 
     static final class HouseView extends View implements ArcaDomo.Listener {
+        private final FocusRing focusRing = new FocusRing(this);
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, AMBER = 0xFFF0B45C, TRACK = 0x24FFFFFF, PAST = 0x73FFFFFF, BONE = 0x14FFFFFF, DARK = 0xFF141414;
         private static final int[] LEVEL_COLORS = {0xFFCFEAF2, 0xFFA8D8B6, 0xFFE3D98C, 0xFFE8B070, 0xFFE08A6A, 0xFFD0606A};
         private static final float LEFT = 112, TOP = 290, CARD_W = 544, CARD_H = 346, GAP = 32, PAD_X = 36;
@@ -142,22 +143,22 @@ public class DomoActivity extends Activity {
             huge220.setLetterSpacing(-0.036f);
             unit32 = Ui.text(Ui.regular, 32 * k, MUTE);
             level44 = Ui.text(Ui.regular, 44 * k, INK);
-            facts30 = Ui.numbers(Ui.regular, 30 * k, INK);
-            label30 = Ui.text(Ui.medium, 30 * k, INK);
+            facts30 = Ui.numbers(Ui.regular, Ui.BODY * k, INK);
+            label30 = Ui.text(Ui.medium, Ui.BODY * k, INK);
             sub24 = Ui.text(Ui.regular, 24 * k, MUTE);
-            value30 = Ui.numbers(Ui.regular, 30 * k, INK);
+            value30 = Ui.numbers(Ui.regular, Ui.BODY * k, INK);
             value30.setTextAlign(Paint.Align.RIGHT);
-            note26 = Ui.text(Ui.regular, 26 * k, MUTE);
-            pillOn = Ui.text(Ui.semibold, 26 * k, DARK);
-            pillOff = Ui.text(Ui.medium, 26 * k, INK);
+            note26 = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
+            pillOn = Ui.text(Ui.semibold, Ui.LABEL * k, DARK);
+            pillOff = Ui.text(Ui.medium, Ui.LABEL * k, INK);
             fan36 = Ui.numbers(Ui.regular, 36 * k, INK);
             fan36.setTextAlign(Paint.Align.CENTER);
             word160 = Ui.text(Ui.light, 160 * k, INK);
             word160.setLetterSpacing(-0.0375f);
-            sub30 = Ui.text(Ui.regular, 30 * k, MUTE);
+            sub30 = Ui.text(Ui.regular, Ui.BODY * k, MUTE);
             value36 = Ui.numbers(Ui.regular, 36 * k, INK);
             rowTitle32 = Ui.text(Ui.medium, 32 * k, INK);
-            rowNote26 = Ui.text(Ui.regular, 26 * k, MUTE);
+            rowNote26 = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             rowNote26.setTextAlign(Paint.Align.RIGHT);
             title34 = Ui.text(Ui.medium, 34 * k, INK);
             title34.setTextAlign(Paint.Align.CENTER);
@@ -213,6 +214,7 @@ public class DomoActivity extends Activity {
             }
             for (int i = firstRow * COLS; i < Math.min(list.size(), (firstRow + VISIBLE_ROWS) * COLS); i++) {
                 cardBox(i, firstRow, rect);
+                if (i == focus) focusRing.at(i);
                 drawCard(c, list.get(i), rect, i == focus, tick);
             }
         }
@@ -238,7 +240,7 @@ public class DomoActivity extends Activity {
         }
 
         private void drawCard(Canvas c, ArcaDomo.Device d, RectF r, boolean focused, long tick) {
-            if (focused) Glass.focus(c, r, Glass.PLATE_RADIUS * k, k, fill, stroke);
+            if (focused) focusRing.focus(c, r, Glass.PLATE_RADIUS * k, "cards", k, fill, stroke);
             else Glass.plate(c, r, k, fill, stroke);
             float x0 = r.left + PAD_X * k, x1 = r.right - PAD_X * k, top = r.top;
             long age = d.age(tick);
@@ -457,9 +459,9 @@ public class DomoActivity extends Activity {
                 if (i == active) {
                     fill.setColor(INK);
                     c.drawRoundRect(tmp, radius, radius, fill);
-                    if (i == focused) Glass.ring(c, tmp, radius, k, stroke);
+                    if (i == focused) focusRing.ring(c, tmp, radius, "options", k, stroke);
                 } else if (i == focused) {
-                    Glass.focus(c, tmp, radius, k, fill, stroke);
+                    focusRing.focus(c, tmp, radius, "options", k, fill, stroke);
                 } else {
                     Glass.plate(c, tmp, radius, k, fill, stroke);
                 }
@@ -494,7 +496,7 @@ public class DomoActivity extends Activity {
 
         private void circle(Canvas c, float left, float cy, int icon, boolean focused) {
             tmp.set(left, cy - 30 * k, left + 60 * k, cy + 30 * k);
-            if (focused) Glass.focus(c, tmp, 30 * k, k, fill, stroke);
+            if (focused) focusRing.focus(c, tmp, 30 * k, "options", k, fill, stroke);
             else Glass.plate(c, tmp, 30 * k, k, fill, stroke);
             Icons.draw(getContext(), c, icon, tmp.centerX(), cy, 28 * k, INK);
         }
@@ -544,7 +546,7 @@ public class DomoActivity extends Activity {
                 tmp.set((PANEL_L + 20) * k, top * k, (PANEL_R - 20) * k, (top + Glass.ROW_H) * k);
                 boolean usable = vacuumUsable(d, i);
                 int save = usable ? -1 : c.saveLayerAlpha(tmp.left - 10 * k, tmp.top - 10 * k, tmp.right + 10 * k, tmp.bottom + 10 * k, 115);
-                Glass.row(c, tmp, k, fill, stroke, row == i && usable);
+                if (row == i && usable) focusRing.row(c, tmp, "rows", k, fill, stroke);
                 float cy = tmp.centerY(), ix = tmp.left + 46 * k;
                 if (VACUUM_ACTIONS[i].equals(pending)) spinner(c, ix, cy, 14 * k, INK, tick);
                 else Icons.draw(getContext(), c, VACUUM_ICONS[i], ix, cy, 36 * k, i == V_START ? INK : MUTE);
@@ -645,6 +647,7 @@ public class DomoActivity extends Activity {
         }
 
         private void move(int dx, int dy) {
+            focusRing.pressed(dx, dy);
             if (screen == ROOMS) {
                 if (showsMessage()) return;
                 int n = domo.devices().size();

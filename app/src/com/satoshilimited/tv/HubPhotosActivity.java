@@ -1,8 +1,14 @@
 package com.satoshilimited.tv;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Shader;
+import android.os.SystemClock;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -66,12 +72,29 @@ public class HubPhotosActivity extends Activity {
         private HubVideo video;
         private String videoHash = "";
         private boolean videoReady;
+        private final Reveal reveal;
+        private final Bitmap thumb;
+        private final String startHash;
+        private final Paint pic = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Matrix matrix = new Matrix();
+        private final RectF frame = new RectF();
+        private boolean grown, closing, onThumb;
+        private Bitmap shaderBitmap;
+        private BitmapShader shader;
+        private long fullAt;
 
         PhotosView(HubPhotosActivity a, int start) {
             super(a);
             activity = a;
             browse = start >= 0;
             show = browse ? new PhotoSlideshow(new LibrarySource(a, start)) : new PhotoSlideshow(a);
+            PhotoLibrary library = browse ? PhotoLibrary.get(a) : null;
+            PhotoLibrary.Item first = library == null ? null : library.item(start);
+            thumb = library == null ? null : library.cachedThumb(start);
+            startHash = first == null ? "" : first.hash;
+            Reveal r = new Reveal(a.getIntent());
+            reveal = thumb != null && r.present() ? r : new Reveal(null);
+            grown = !reveal.present();
             setFocusable(true);
             text.setColor(0xB8FFFFFF);
             text.setTextAlign(Paint.Align.CENTER);
@@ -147,12 +170,84 @@ public class HubPhotosActivity extends Activity {
             surface.setVisibility(VISIBLE);
         }
 
+        private void drawCover(Canvas c, Bitmap b, RectF box, float radius, int alpha) {
+            if (b != shaderBitmap) {
+                shaderBitmap = b;
+                shader = new BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+            }
+            float scale = Math.max(box.width() / b.getWidth(), box.height() / b.getHeight());
+            matrix.setScale(scale, scale);
+            matrix.postTranslate(box.centerX() - b.getWidth() * scale / 2, box.centerY() - b.getHeight() * scale / 2);
+            shader.setLocalMatrix(matrix);
+            pic.setShader(shader);
+            pic.setAlpha(alpha);
+            c.drawRoundRect(box, radius, radius, pic);
+            pic.setShader(null);
+        }
+
+        private Bitmap growing() {
+            Bitmap full = show.ready() && startHash.equals(show.currentHash()) ? show.currentBitmap() : null;
+            return full != null ? full : thumb;
+        }
+
+        private boolean drawReveal(Canvas c, int width, int height) {
+            if (!closing && grown) return false;
+            float radius = reveal.rect(frame, width, height);
+            Bitmap b = growing();
+            if (b != null) drawCover(c, b, frame, radius, 255);
+            if (closing && !reveal.running()) {
+                activity.finish();
+                activity.overridePendingTransition(0, 0);
+                return true;
+            }
+            if (!closing && !reveal.running()) {
+                grown = true;
+                onThumb = !show.ready();
+                show.settle();
+                return false;
+            }
+            postInvalidateOnAnimation();
+            return true;
+        }
+
+        private void close() {
+            boolean same = startHash.equals(show.currentHash()) || !show.ready();
+            if (reveal.present() && !closing && same && videoHash.isEmpty()) {
+                closing = true;
+                reveal.reverse();
+                invalidate();
+                return;
+            }
+            if (!closing) activity.finish();
+        }
+
         @Override protected void onDraw(Canvas c) {
             syncVideo();
             int width = getWidth(), height = getHeight();
             float k = width / 1920f;
+            if (drawReveal(c, width, height)) return;
             boolean videoActive = !videoHash.isEmpty();
-            if (!videoActive || !videoReady) show.draw(c, width, height, false, true);
+            if (onThumb && show.failed()) onThumb = false;
+            if (onThumb && !show.ready()) {
+                frame.set(0, 0, width, height);
+                drawCover(c, thumb, frame, 0, 255);
+                postInvalidateOnAnimation();
+                return;
+            }
+            if (onThumb) {
+                onThumb = false;
+                fullAt = SystemClock.uptimeMillis();
+                show.settle();
+            }
+            float arriving = fullAt == 0 ? 1f : Math.min(1f, (SystemClock.uptimeMillis() - fullAt) / (float) ArtFade.MS);
+            if (arriving < 1f && thumb != null && !videoActive) {
+                frame.set(0, 0, width, height);
+                drawCover(c, thumb, frame, 0, 255);
+                c.saveLayerAlpha(0, 0, width, height, Math.round(255 * arriving));
+                show.draw(c, width, height, false, true);
+                c.restore();
+                postInvalidateOnAnimation();
+            } else if (!videoActive || !videoReady) show.draw(c, width, height, false, true);
             if (videoActive && videoReady && video != null) {
                 float p = video.progress();
                 if (p >= 0f) {
@@ -164,7 +259,7 @@ public class HubPhotosActivity extends Activity {
             }
             if (!videoActive) {
                 if (show.failed()) {
-                    text.setTextSize(30 * k);
+                    text.setTextSize(Ui.BODY * k);
                     c.drawText("No photos to show yet.", width / 2f, height / 2f, text);
                 }
             }
@@ -197,7 +292,7 @@ public class HubPhotosActivity extends Activity {
                     if (down) {
                         if (e.getRepeatCount() == 0) backDown = true;
                     } else {
-                        if (backDown && !e.isCanceled()) activity.finish();
+                        if (backDown && !e.isCanceled()) close();
                         backDown = false;
                     }
                     return true;

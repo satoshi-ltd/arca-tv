@@ -21,6 +21,7 @@ final class Ui {
     private Ui() {}
 
     static final boolean LEGACY = Build.VERSION.SDK_INT < 31;
+    static final float DISPLAY = 112, HERO = 96, TITLE = 72, HEADING = 32, BODY = 28, LABEL = 24, CAPTION = 20, TAG = 18;
     static final String language = "en";
     static final boolean en = true, es = false, de = false, ru = false;
     static Typeface thin, light, displayMedium, displaySemibold, regular, medium, semibold;
@@ -76,7 +77,7 @@ final class Ui {
     }
 
     static Paint tagPaint(float k) {
-        Paint p = text(semibold, 18 * k, 0xFFFFFFFF);
+        Paint p = text(semibold, TAG * k, 0xFFFFFFFF);
         p.setLetterSpacing(0.11f);
         return p;
     }

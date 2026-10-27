@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -47,9 +48,32 @@ final class PhotoLibrary {
 
     private static PhotoLibrary instance;
 
+    private static volatile int generation;
+
     static synchronized PhotoLibrary get(Context c) {
         if (instance == null) instance = new PhotoLibrary(c.getApplicationContext());
         return instance;
+    }
+
+    static void forget(Context c) {
+        generation++;
+        PhotoLibrary library;
+        synchronized (PhotoLibrary.class) {
+            library = instance;
+        }
+        if (library != null) {
+            library.memory.evictAll();
+            library.fetched.clear();
+        }
+        File dir = new File(c.getCacheDir(), "arca-thumbs");
+        new Thread(() -> {
+            File[] files = dir.listFiles();
+            if (files != null) for (File f : files) f.delete();
+        }).start();
+    }
+
+    void forgetFetched() {
+        fetched.clear();
     }
 
     private static final class LifoQueue extends LinkedBlockingDeque<Runnable> {
@@ -68,6 +92,7 @@ final class PhotoLibrary {
         }
     };
     private final Set<String> inFlight = new HashSet<>();
+    private final Set<String> fetched = ConcurrentHashMap.newKeySet();
     private final Set<Integer> loadingMonths = new HashSet<>();
     private final Map<Integer, String> cursors = new HashMap<>();
     private final List<Listener> listeners = new ArrayList<>();
@@ -368,6 +393,10 @@ final class PhotoLibrary {
         return null;
     }
 
+    boolean fetched(String hash) {
+        return fetched.remove(hash + "t");
+    }
+
     Bitmap cachedThumb(int index) {
         Item it = item(index);
         return it == null ? null : memory.get(it.hash + "t");
@@ -377,12 +406,21 @@ final class PhotoLibrary {
         synchronized (inFlight) {
             if (!inFlight.add(key)) return;
         }
+        int requestGeneration = generation;
         loader.execute(() -> {
             try {
                 if (index >= 0 && (index < wantLow || index > wantHigh)) return;
                 Bitmap b = fromDisk(key);
                 if (b == null) {
-                    b = fetch(it, size, key, true);
+                    b = fetch(it, size, key, requestGeneration == generation);
+                    if (requestGeneration != generation) {
+                        new File(disk, key + ".jpg").delete();
+                        return;
+                    }
+                    if (b != null) {
+                        if (fetched.size() >= 512) fetched.clear();
+                        fetched.add(key);
+                    }
                 }
                 if (b != null) {
                     memory.put(key, b);

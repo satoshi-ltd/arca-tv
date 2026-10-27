@@ -52,6 +52,7 @@ public class LocationActivity extends Activity {
     }
 
     static final class LocationView extends View {
+        private final FocusRing focusRing = new FocusRing(this);
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, DIM = 0x73FFFFFF;
         private static final int TOGGLE = 0, FIELD = 1, RESULTS = 2, KEYS = 3;
         private static final int COLS = 11, ROWS = 3, MAX = 40, MAX_RESULTS = 3, CAPS = 27, SPACE = 28, DELETE = 29, DONE = 30;
@@ -92,14 +93,14 @@ public class LocationActivity extends Activity {
             background = new LinearGradient(0, 0, 0, h, new int[] {0xFF141414, 0xFF0E0E0E, 0xFF0A0A0A}, new float[] {0, 0.55f, 1}, Shader.TileMode.CLAMP);
             header = new Header(k);
             fieldPaint = Ui.text(Ui.light, 40 * k, INK);
-            rowTitle = Ui.text(Ui.medium, 30 * k, INK);
+            rowTitle = Ui.text(Ui.medium, Ui.BODY * k, INK);
             rowValue = Ui.text(Ui.regular, 28 * k, MUTE);
             rowValue.setTextAlign(Paint.Align.RIGHT);
             keyPaint = Ui.text(Ui.regular, 40 * k, INK);
             keyPaint.setTextAlign(Paint.Align.CENTER);
             smallKey = Ui.text(Ui.medium, 24 * k, INK);
             smallKey.setTextAlign(Paint.Align.CENTER);
-            hint = Ui.text(Ui.regular, 26 * k, MUTE);
+            hint = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
         }
 
         private static final float PLATE_TOP = 244, KEYS_TOP = 748;
@@ -134,14 +135,14 @@ public class LocationActivity extends Activity {
             Glass.plate(c, tmp, k, fill, stroke);
 
             rowBox(0, rect);
-            Glass.row(c, rect, k, fill, stroke, section == TOGGLE);
+            if (section == TOGGLE) focusRing.row(c, rect, "rows", k, fill, stroke);
             rowTitle.setColor(INK);
             c.drawText("Weather", rect.left + 32 * k, rect.centerY() + Ui.halfCap(rowTitle), rowTitle);
             rowValue.setColor(MUTE);
             c.drawText(currentValue(), rect.right - 32 * k, rect.centerY() + Ui.halfCap(rowValue), rowValue);
 
             rowBox(1, rect);
-            Glass.row(c, rect, k, fill, stroke, section == FIELD);
+            if (section == FIELD) focusRing.row(c, rect, "rows", k, fill, stroke);
             Icons.draw(getContext(), c, R.drawable.icon_search, rect.left + 48 * k, rect.centerY(), 32 * k, MUTE);
             float textLeft = rect.left + 80 * k;
             String shown = query.toString();
@@ -163,7 +164,7 @@ public class LocationActivity extends Activity {
 
             for (int i = 0; i < shownResults; i++) {
                 rowBox(2 + i, rect);
-                Glass.row(c, rect, k, fill, stroke, section == RESULTS && i == resultIndex);
+                if (section == RESULTS && i == resultIndex) focusRing.row(c, rect, "rows", k, fill, stroke);
                 String[] r = results.get(i);
                 float x = rect.left + 32 * k, max = rect.width() - 100 * k;
                 String city = fit(r[1], rowTitle, max);
@@ -202,7 +203,7 @@ public class LocationActivity extends Activity {
             }
             if (section == KEYS) {
                 keyBox(keyFocus, rect);
-                Glass.focus(c, rect, Glass.ROW_RADIUS * k, k, fill, stroke);
+                focusRing.focus(c, rect, Glass.ROW_RADIUS * k, "keys", k, fill, stroke);
             }
         }
 
@@ -309,6 +310,7 @@ public class LocationActivity extends Activity {
         }
 
         private void move(int dx, int dy) {
+            focusRing.pressed(dx, dy);
             if (section == KEYS) {
                 int col = keyFocus % COLS + dx, row = keyFocus / COLS + dy;
                 if (dy < 0 && row < 0) {

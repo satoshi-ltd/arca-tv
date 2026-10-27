@@ -32,6 +32,7 @@ public class OnboardingActivity extends Activity {
     }
 
     static final class OnboardingView extends View {
+        private final FocusRing focusRing = new FocusRing(this);
         private static final int INK = 0xFFF2F2F2, MUTE = 0xC2FFFFFF, WASH = 0xFF7FB893;
         private static final int FIELD = -1, PRIMARY = 0, SECONDARY = 1;
 
@@ -67,7 +68,7 @@ public class OnboardingActivity extends Activity {
             header = new Header(k);
             titlePaint = Ui.text(Ui.light, 64 * k, INK);
             titlePaint.setTextAlign(Paint.Align.CENTER);
-            subPaint = Ui.text(Ui.regular, 30 * k, MUTE);
+            subPaint = Ui.text(Ui.regular, Ui.BODY * k, MUTE);
             subPaint.setTextAlign(Paint.Align.CENTER);
             pillPaint = Ui.text(Ui.medium, 28 * k, INK);
             pillPaint.setTextAlign(Paint.Align.CENTER);
@@ -139,7 +140,7 @@ public class OnboardingActivity extends Activity {
                 pillPaint.setTextAlign(Paint.Align.LEFT);
                 c.drawText(hasCity ? Prefs.city() : "Search for a city", tmp.left + 32 * k, tmp.centerY() + Ui.halfCap(pillPaint), pillPaint);
                 pillPaint.setTextAlign(Paint.Align.CENTER);
-                if (focus == FIELD) Glass.focus(c, tmp, tmp.height() / 2, k, fill, stroke);
+                if (focus == FIELD) focusRing.focus(c, tmp, tmp.height() / 2, "controls", k, fill, stroke);
             }
 
             pillBox(PRIMARY, rect);
@@ -147,14 +148,14 @@ public class OnboardingActivity extends Activity {
             c.drawRoundRect(rect, 36 * k, 36 * k, fill);
             pillPaint.setColor(0xFF141414);
             c.drawText(primaryLabel(), rect.centerX(), rect.centerY() + Ui.halfCap(pillPaint), pillPaint);
-            if (focus == PRIMARY) Glass.focus(c, rect, 36 * k, k, fill, stroke);
+            if (focus == PRIMARY) focusRing.focus(c, rect, 36 * k, "controls", k, fill, stroke);
 
             if (hasSecondary()) {
                 pillBox(SECONDARY, rect);
                 Glass.plate(c, rect, 36 * k, k, fill, stroke);
                 pillPaint.setColor(INK);
                 c.drawText("Skip for now", rect.centerX(), rect.centerY() + Ui.halfCap(pillPaint), pillPaint);
-                if (focus == SECONDARY) Glass.focus(c, rect, 36 * k, k, fill, stroke);
+                if (focus == SECONDARY) focusRing.focus(c, rect, 36 * k, "controls", k, fill, stroke);
             }
 
             boolean skip = citySkippable();
@@ -230,6 +231,7 @@ public class OnboardingActivity extends Activity {
 
         boolean onKey(KeyEvent e) {
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            focusRing.key(e);
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                     if (down && focus != FIELD && hasSecondary()) focus = PRIMARY;

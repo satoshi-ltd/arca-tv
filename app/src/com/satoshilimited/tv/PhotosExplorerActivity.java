@@ -56,6 +56,7 @@ public class PhotosExplorerActivity extends Activity {
     }
 
     static final class ExplorerView extends View implements PhotoLibrary.Listener {
+        private final FocusRing focusRing = new FocusRing(this);
         private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF;
         private static final float LEFT = 112, TILE = 236, TILE_H = 177, TILE_GAP = 18, HEADING = 78, VIEW_TOP = 236, VIEW_BOTTOM = 1022, RAIL_X = 1792, RAIL_TOP = 262, RAIL_BOTTOM = 1030;
         private static final int COLS = 6;
@@ -89,6 +90,7 @@ public class PhotosExplorerActivity extends Activity {
         private long pendingAt, highlightAt, now;
         private Paint memoryLabel, memoryTitle, memoryDetail;
         private LinearGradient memoryShade;
+        private final java.util.Set<String> waiting = new java.util.HashSet<>();
 
         ExplorerView(PhotosExplorerActivity a) {
             super(a);
@@ -111,6 +113,8 @@ public class PhotosExplorerActivity extends Activity {
         }
 
         void release() {
+            waiting.clear();
+            library.forgetFetched();
             library.removeListener(this);
         }
 
@@ -129,12 +133,12 @@ public class PhotosExplorerActivity extends Activity {
             countPaint = Ui.text(Ui.regular, 24 * k, MUTE);
             yearPaint = Ui.text(Ui.medium, 20 * k, MUTE);
             yearPaint.setTextAlign(Paint.Align.RIGHT);
-            messagePaint = Ui.text(Ui.medium, 30 * k, 0x73FFFFFF);
-            chipPaint = Ui.text(Ui.semibold, 30 * k, 0xFF141414);
-            chipCountPaint = Ui.text(Ui.regular, 26 * k, 0x99141414);
+            messagePaint = Ui.text(Ui.medium, Ui.BODY * k, 0x73FFFFFF);
+            chipPaint = Ui.text(Ui.semibold, Ui.BODY * k, 0xFF141414);
+            chipCountPaint = Ui.text(Ui.regular, Ui.LABEL * k, 0x99141414);
             memoryLabel = Ui.text(Ui.medium, 32 * k, INK);
             memoryTitle = Ui.text(Ui.semibold, 20 * k, INK);
-            memoryDetail = Ui.text(Ui.regular, 17 * k, 0xCCFFFFFF);
+            memoryDetail = Ui.text(Ui.regular, Ui.CAPTION * k, 0xCCFFFFFF);
             memoryShade = new LinearGradient(0, 0, 0, MEMORY_SHADE * k, 0x000A0A0A, 0xD10A0A0A, Shader.TileMode.CLAMP);
         }
 
@@ -268,13 +272,13 @@ public class PhotosExplorerActivity extends Activity {
             drawGrid(c, fast, fm);
             drawRail(c, fm, tick);
             hintLine(c);
-            if (running && (scroll != scrollTarget || fast || tick - movedAt < 1500 || backdrop.active() || pendingHash != null || tick - highlightAt < 1500)) postInvalidateOnAnimation();
+            if (running && (scroll != scrollTarget || fast || tick - movedAt < 1500 || backdrop.active() || pendingHash != null || tick - highlightAt < 1500 || ArtFade.settling())) postInvalidateOnAnimation();
             else if (running && fastUntil != 0 && tick - fastUntil < 400) postInvalidateDelayed(120);
         }
 
         private void hintLine(Canvas c) {
             if (!fast) return;
-            countPaint.setTextSize(22 * k);
+            countPaint.setTextSize(Ui.LABEL * k);
             c.drawText("Holding Down: 1 row, then 2, then 4, then a month", LEFT * k, 1062 * k, countPaint);
             countPaint.setTextSize(24 * k);
         }
@@ -333,13 +337,17 @@ public class PhotosExplorerActivity extends Activity {
                     rect.set(x * k, y * k, (x + TILE) * k, (y + TILE_H) * k);
                     Bitmap b = fast ? library.cachedThumb(index) : library.thumb(index);
                     if (fast && library.item(index) == null) library.ensure(index);
-                    drawTile(c, b, rect, library.item(index));
+                    PhotoLibrary.Item item = library.item(index);
+                    drawTile(c, b, rect, item, item == null ? null : item.hash);
                     if (index == highlightIndex && now - highlightAt < 1200) {
                         fill.setColor(INK);
                         fill.setAlpha(Math.round(90 * (1f - (now - highlightAt) / 1200f)));
                         c.drawRoundRect(rect, 18 * k, 18 * k, fill);
                     }
-                    if (r == focusRow && col == focusCol && !onMemories) Glass.ring(c, rect, 21 * k, k, stroke);
+                    if (r == focusRow && col == focusCol && !onMemories) {
+                        focusRing.at(index);
+                        focusRing.ring(c, rect, 21 * k, "tiles", k, stroke);
+                    }
                 }
             }
             c.restoreToCount(saved);
@@ -352,7 +360,7 @@ public class PhotosExplorerActivity extends Activity {
                 PhotoLibrary.Memory m = memories.get(i);
                 float x = LEFT + i * (TILE + TILE_GAP), y = top + MEMORY_TOP;
                 rect.set(x * k, y * k, (x + TILE) * k, (y + TILE_H) * k);
-                drawTile(c, library.memoryThumb(m), rect, null);
+                drawTile(c, library.memoryThumb(m), rect, null, m.item.hash + "m");
                 int saved = c.save();
                 c.clipRect(rect);
                 c.translate(0, rect.bottom - MEMORY_SHADE * k);
@@ -362,7 +370,7 @@ public class PhotosExplorerActivity extends Activity {
                 c.restoreToCount(saved);
                 c.drawText(m.title, rect.left + 16 * k, rect.bottom - 40 * k, memoryTitle);
                 c.drawText(m.detail, rect.left + 16 * k, rect.bottom - 14 * k, memoryDetail);
-                if (onMemories && i == memoryCol) Glass.ring(c, rect, 21 * k, k, stroke);
+                if (onMemories && i == memoryCol) focusRing.ring(c, rect, 21 * k, "tiles", k, stroke);
             }
         }
 
@@ -407,12 +415,19 @@ public class PhotosExplorerActivity extends Activity {
             pendingHash = null;
         }
 
-        private void drawTile(Canvas c, Bitmap b, RectF box, PhotoLibrary.Item it) {
+        private void drawTile(Canvas c, Bitmap b, RectF box, PhotoLibrary.Item it, String key) {
             float radius = 18 * k;
             if (b == null) {
+                if (key != null && (waiting.size() < 512 || waiting.contains(key))) waiting.add(key);
                 fill.setColor(Glass.FILL);
                 c.drawRoundRect(box, radius, radius, fill);
                 return;
+            }
+            if (key != null && waiting.remove(key) && library.fetched(key.endsWith("m") ? key.substring(0, key.length() - 1) : key)) ArtFade.arrived(key);
+            float alpha = key == null ? 1f : ArtFade.alpha(key);
+            if (alpha < 1f) {
+                fill.setColor(Glass.FILL);
+                c.drawRoundRect(box, radius, radius, fill);
             }
             BitmapShader shader = new BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
             float scale = Math.max(box.width() / b.getWidth(), box.height() / b.getHeight());
@@ -420,7 +435,7 @@ public class PhotosExplorerActivity extends Activity {
             matrix.postTranslate(box.centerX() - b.getWidth() * scale / 2, box.centerY() - b.getHeight() * scale / 2);
             shader.setLocalMatrix(matrix);
             pic.setShader(shader);
-            pic.setAlpha(fast ? 150 : 255);
+            pic.setAlpha(Math.round((fast ? 150 : 255) * alpha));
             c.drawRoundRect(box, radius, radius, pic);
             pic.setShader(null);
             if (it != null && it.video) {
@@ -448,7 +463,7 @@ public class PhotosExplorerActivity extends Activity {
                 if (y - lastY < 26) continue;
                 lastY = y;
                 boolean current = fm >= 0 && library.months.get(fm).key.startsWith(String.valueOf(year));
-                yearPaint.setTextSize((current ? 24 : 20) * k);
+                yearPaint.setTextSize((current ? Ui.LABEL : Ui.CAPTION) * k);
                 yearPaint.setTypeface(current ? Ui.semibold : Ui.medium);
                 yearPaint.setColor(current ? INK : MUTE);
                 yearPaint.setAlpha(current ? 255 : Math.round(255 * strength));
@@ -488,7 +503,14 @@ public class PhotosExplorerActivity extends Activity {
         private void open(int index) {
             Intent intent = new Intent(getContext(), HubPhotosActivity.class);
             if (index >= 0) intent.putExtra("start", index);
+            boolean grow = index >= 0 && index == focusIndex() && !onMemories && library.cachedThumb(index) != null;
+            if (grow) {
+                float x = LEFT + focusCol * (TILE + TILE_GAP), y = VIEW_TOP + rowTop[focusRow] - scroll;
+                tmp.set(x * k, y * k, (x + TILE) * k, (y + TILE_H) * k);
+                Reveal.put(intent, tmp, 18 * k);
+            }
             getContext().startActivity(intent);
+            if (grow) activity.overridePendingTransition(0, 0);
         }
 
         boolean onKey(KeyEvent e) {
@@ -502,6 +524,7 @@ public class PhotosExplorerActivity extends Activity {
                 return false;
             }
             long tick = SystemClock.uptimeMillis();
+            focusRing.key(e);
             switch (e.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_DOWN:
                 case KeyEvent.KEYCODE_DPAD_UP:

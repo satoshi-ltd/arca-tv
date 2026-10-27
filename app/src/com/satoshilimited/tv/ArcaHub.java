@@ -119,6 +119,8 @@ final class ArcaHub {
     static synchronized void disconnect(Context c) {
         prefs(c).edit().clear().apply();
         VideoLibrary.forget(c);
+        MusicCovers.forget(c);
+        PhotoLibrary.forget(c);
         HubCounts.forget(c);
     }
 
@@ -178,6 +180,8 @@ final class ArcaHub {
                     if (token.isEmpty() || id.isEmpty()) throw new IOException("bad reply");
                     synchronized (ArcaHub.class) {
                         VideoLibrary.forget(app);
+                        MusicCovers.forget(app);
+                        PhotoLibrary.forget(app);
                         prefs(app).edit().clear().putString("url", hub.url).putString("name", hub.name).putString("token", token)
                                 .putString("device", id).putString("hub", hubId).putBoolean("player", player).apply();
                     }
