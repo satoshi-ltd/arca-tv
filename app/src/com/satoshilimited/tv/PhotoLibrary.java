@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 final class PhotoLibrary {
     static final class Item {
         String path = "", hash = "", date = "";
+        long rev;
         boolean video;
     }
 
@@ -319,6 +320,7 @@ final class PhotoLibrary {
             Item it = new Item();
             it.path = o.optString("path");
             it.hash = o.optString("hash");
+            it.rev = o.optLong("rev");
             it.date = o.optString("date");
             it.video = o.optString("kind").toLowerCase(Locale.ROOT).contains("video");
             items[start + i] = it;

@@ -75,7 +75,10 @@ public class PhotosExplorerActivity extends Activity {
         private int rows, focusRow = -1, focusCol, builtFor = -1;
         private float scroll, scrollTarget;
         private long fastUntil, movedAt;
-        private boolean running, okDown, backDown, fast;
+        private boolean running, okDown, backDown, fast, longDone;
+        private final ContinueMenu menu = new ContinueMenu(this);
+        private final DeleteDialog deleting = new DeleteDialog(this, this::deleteConfirmed);
+        private PhotoLibrary.Item menuPhoto;
         private int w, h;
         private float k = 1;
         private LinearGradient background;
@@ -173,6 +176,9 @@ public class PhotosExplorerActivity extends Activity {
                 }
             }
             rows = total;
+            if (focusRow >= rows) focusRow = rows - 1;
+            if (focusRow >= 0 && rowStart[focusRow] < 0) focusRow = focusRow + 1 < rows && rowStart[focusRow + 1] >= 0 ? focusRow + 1 : Math.max(0, focusRow - 1);
+            if (focusRow >= 0 && rowStart[focusRow] >= 0) focusCol = Math.min(focusCol, rowCount[focusRow] - 1);
             contentHeight = y;
             builtFor = library.total();
             chipMonth = -1;
@@ -272,6 +278,12 @@ public class PhotosExplorerActivity extends Activity {
             drawGrid(c, fast, fm);
             drawRail(c, fm, tick);
             hintLine(c);
+            if (menu.isOpen() && !onMemories && focusRow >= 0) {
+                float x = LEFT + focusCol * (TILE + TILE_GAP), y = VIEW_TOP + rowTop[focusRow] - scroll;
+                tmp.set(x * k, y * k, (x + TILE) * k, (y + TILE_H) * k);
+                menu.draw(getContext(), c, tmp, k, h, fill, stroke);
+            }
+            deleting.draw(getContext(), c, w, h, k, fill, stroke);
             if (running && (scroll != scrollTarget || fast || tick - movedAt < 1500 || backdrop.active() || pendingHash != null || tick - highlightAt < 1500 || ArtFade.settling())) postInvalidateOnAnimation();
             else if (running && fastUntil != 0 && tick - fastUntil < 400) postInvalidateDelayed(120);
         }
@@ -513,9 +525,64 @@ public class PhotosExplorerActivity extends Activity {
             if (grow) activity.overridePendingTransition(0, 0);
         }
 
+        private void openMenu() {
+            menuPhoto = library.item(focusIndex());
+            if (menuPhoto != null) menu.open(ContinueMenu.OPEN, ContinueMenu.DELETE);
+        }
+
+        private void runMenu() {
+            PhotoLibrary.Item it = menuPhoto;
+            int action = menu.choose();
+            if (action == ContinueMenu.OPEN) open(focusIndex());
+            else if (it.rev <= 0) deleting.notice(HubDelete.OLD_HUB);
+            else deleting.open(it.video ? "Delete this video?" : "Delete this photo?", it.date.length() >= 10 ? it.date.substring(0, 10) : it.date,
+                    "This deletes it on the hub and on every device that syncs this folder. If the folder has recovery set up in arca you can restore it there; otherwise it is gone.");
+        }
+
+        private void deleteConfirmed() {
+            deleting.working();
+            PhotoLibrary.Item it = menuPhoto;
+            List<HubDelete.Target> targets = new ArrayList<>();
+            targets.add(new HubDelete.Target(it.path, it.rev));
+            HubDelete.photos(getContext(), ArcaHub.volume(getContext(), "photos"), targets, (removed, error) -> {
+                if (!removed.isEmpty()) library.load();
+                deleting.notice(error != null ? error : it.video ? "Video deleted" : "Photo deleted");
+                invalidate();
+            });
+        }
+
+        private boolean menuKey(KeyEvent e) {
+            boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            switch (e.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    if (down) menu.move(-1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (down) menu.move(1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                    if (down && e.getRepeatCount() == 0) okDown = true;
+                    else if (!down && okDown && !e.isCanceled()) runMenu();
+                    if (!down) okDown = false;
+                    break;
+                case KeyEvent.KEYCODE_BACK:
+                    if (down && e.getRepeatCount() == 0) backDown = true;
+                    else if (!down && backDown && !e.isCanceled()) menu.close();
+                    if (!down) backDown = false;
+                    break;
+                default:
+                    break;
+            }
+            invalidate();
+            return true;
+        }
+
         boolean onKey(KeyEvent e) {
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
             int repeat = e.getRepeatCount();
+            if (deleting.isOpen()) return deleting.onKey(e);
+            if (menu.isOpen()) return menuKey(e);
             if (!library.ready() || rows == 0 || focusRow < 0) {
                 if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
                     if (!down) activity.finish();
@@ -607,9 +674,16 @@ public class PhotosExplorerActivity extends Activity {
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
                     if (down) {
-                        if (repeat == 0) okDown = true;
+                        if (repeat == 0) {
+                            okDown = true;
+                            longDone = false;
+                        } else if (repeat == 1 && okDown && !longDone && !onMemories) {
+                            longDone = true;
+                            okDown = false;
+                            openMenu();
+                        }
                     } else {
-                        if (okDown && !e.isCanceled()) {
+                        if (okDown && !longDone && !e.isCanceled()) {
                             if (onMemories && memoryCol < memories.size()) openMemory(memories.get(memoryCol));
                             else open(focusIndex());
                         }

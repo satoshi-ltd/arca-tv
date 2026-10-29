@@ -115,7 +115,10 @@ public class HubMusicActivity extends Activity {
         private String queueName = "";
         private MediaPlayer player;
         private int tab, qi = -1;
-        private boolean tabsFocused, loading = true, failed, paused, running, okDown, backDown;
+        private boolean tabsFocused, loading = true, failed, paused, running, okDown, backDown, longDone;
+        private final ContinueMenu menu = new ContinueMenu(this);
+        private final DeleteDialog deleting = new DeleteDialog(this, this::deleteConfirmed);
+        private MusicLibrary.Track menuTrack;
         private int w, h;
         private float k = 1;
         private LinearGradient background;
@@ -398,6 +401,8 @@ public class HubMusicActivity extends Activity {
                 c.drawText(fit((paused ? "Paused · " : "Playing · ") + t.title + (t.artist.isEmpty() ? "" : " — " + t.artist), hint, 1500 * k), 112 * k, 1030 * k, hint);
             }
             drawFly(c);
+            if (menu.isOpen() && menuAnchor(rect)) menu.draw(getContext(), c, rect, k, h, fill, stroke);
+            deleting.draw(getContext(), c, w, h, k, fill, stroke);
             if (running && (ArtFade.settling() || flyKey != null || leaving != null || opening < 1f || tabSlide() < 1f || (s.type == NOW && (textAlpha() < 1f || hiding())))) postInvalidateOnAnimation();
             else if (running && backdrop.active()) postInvalidateDelayed(50);
             else if (running && s.type == NOW && remaining() > 0 && plateAlpha() >= 1f) {
@@ -1277,8 +1282,88 @@ public class HubMusicActivity extends Activity {
                     || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
         }
 
+        private boolean onTracks() {
+            Screen s = top();
+            return library != null && stack.size() > 1 && (s.type == ALBUM || s.type == PLAYLIST) && s.focus < tracksOf(s).size();
+        }
+
+        private boolean menuAnchor(RectF out) {
+            Screen s = top();
+            if (s.type != ALBUM && s.type != PLAYLIST) return false;
+            rowBox(s.focus - s.scroll, (s.type == ALBUM ? 600 : 520) + Glass.PLATE_INSET, 1808 - Glass.PLATE_INSET, 262, out);
+            return true;
+        }
+
+        private void openMenu() {
+            Screen s = top();
+            menuTrack = tracksOf(s).get(s.focus);
+            menu.open(ContinueMenu.PLAY, ContinueMenu.DELETE);
+        }
+
+        private void runMenu() {
+            Screen s = top();
+            int action = menu.choose();
+            if (action == ContinueMenu.PLAY) {
+                select();
+            } else if (menuTrack.rev <= 0) {
+                deleting.notice(HubDelete.OLD_HUB);
+            } else if (playing(tracksOf(s), s.focus)) {
+                deleting.notice("It is playing now.");
+            } else {
+                deleting.open("Delete \u201c" + menuTrack.title + "\u201d?", (menuTrack.artist.isEmpty() ? "" : menuTrack.artist + " \u00b7 ") + time(menuTrack.seconds),
+                        "This deletes the file on the hub. If that folder has recovery set up in arca you can restore it there; otherwise it is gone.");
+            }
+        }
+
+        private void deleteConfirmed() {
+            deleting.working();
+            MusicLibrary.Track gone = menuTrack;
+            List<HubDelete.Target> targets = new ArrayList<>();
+            targets.add(new HubDelete.Target(gone.path, gone.rev));
+            HubDelete.file(getContext(), ArcaHub.volume(getContext(), "music"), targets, (removed, error) -> {
+                if (!removed.isEmpty() && library != null) {
+                    library.remove(gone);
+                    recent = library.recent(getContext());
+                    Screen s = top();
+                    if ((s.type == ALBUM || s.type == PLAYLIST) && tracksOf(s).isEmpty()) pop();
+                    else if (s.type == ALBUM || s.type == PLAYLIST) s.focus = Math.min(s.focus, tracksOf(s).size() - 1);
+                }
+                deleting.notice(error != null ? error : "Deleted \u201c" + gone.title + "\u201d");
+                invalidate();
+            });
+        }
+
+        private boolean menuKey(KeyEvent e) {
+            boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            switch (e.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    if (down) menu.move(-1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (down) menu.move(1);
+                    break;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                    if (down && e.getRepeatCount() == 0) okDown = true;
+                    else if (!down && okDown && !e.isCanceled()) runMenu();
+                    if (!down) okDown = false;
+                    break;
+                case KeyEvent.KEYCODE_BACK:
+                    if (down && e.getRepeatCount() == 0) backDown = true;
+                    else if (!down && backDown && !e.isCanceled()) menu.close();
+                    if (!down) backDown = false;
+                    break;
+                default:
+                    break;
+            }
+            invalidate();
+            return true;
+        }
+
         boolean onKey(KeyEvent e) {
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+            if (deleting.isOpen()) return deleting.onKey(e);
+            if (menu.isOpen()) return menuKey(e);
             if (!down && e.getKeyCode() == wakeKey) {
                 wakeKey = -1;
                 return true;
@@ -1316,9 +1401,16 @@ public class HubMusicActivity extends Activity {
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
                     if (down) {
-                        if (e.getRepeatCount() == 0) okDown = true;
+                        if (e.getRepeatCount() == 0) {
+                            okDown = true;
+                            longDone = false;
+                        } else if (e.getRepeatCount() == 1 && okDown && !longDone && onTracks()) {
+                            longDone = true;
+                            okDown = false;
+                            openMenu();
+                        }
                     } else {
-                        if (okDown && !e.isCanceled()) select();
+                        if (okDown && !longDone && !e.isCanceled()) select();
                         okDown = false;
                     }
                     break;

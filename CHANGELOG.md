@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Delete from the TV: hold OK on a movie, show, song or photo and choose Delete…, then hold OK to confirm. Needs arca 0.8.9 on the hub; recovery is arca's own history when the folder keeps one.
+- Movies grids: the second row no longer cuts the focused poster's title and year.
+
 ## 1.2.0
 
 - Home shows the focused Watch next title in large type above the row, with its rating, year, runtime and a line of overview.

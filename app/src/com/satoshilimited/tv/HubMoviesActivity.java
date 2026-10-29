@@ -79,7 +79,7 @@ public class HubMoviesActivity extends Activity {
         private static final int HOME = 0, MOVIES = 1, SHOWS = 2, KIDS = 3, OTHERS = 4;
         private static final String[] NAMES = {"Home", "Movies", "TV Shows", "Kids", "Others"};
         private static final int ROOT = 0, MOVIE = 1, SHOW = 2;
-        private static final int COLS = 7, POSTER_W = 190, POSTER_H = 285, GRID_STRIDE = 400, GRID_TOP = 330;
+        private static final int COLS = 7, POSTER_W = 190, POSTER_H = 285, GRID_STRIDE = 370, GRID_TOP = 316;
         private static final int STILL_W = 300, STILL_H = 169, STILL_GAP = 28, POSTER_GAP = 61, ROW_CARDS = 64, STILL_ROW = 344, CARD_W = 400, CARD_H = 225, CARD_GAP = 32, POSTER_ROW = 470;
         private static final int Z_BUTTONS = 0, Z_SEASONS = 1, Z_EPISODES = 2, Z_RELATED = 3, RELATED_VISIBLE = 7;
         private static final long POLL_MS = 4000, REFRESH_MS = 30_000;
@@ -145,6 +145,10 @@ public class HubMoviesActivity extends Activity {
         private final Map<Integer, List<VideoLibrary.Item>> sorted = new HashMap<>();
         private final SharedPreferences ui;
         private final ContinueMenu menu = new ContinueMenu(this);
+        private final DeleteDialog deleting = new DeleteDialog(this, this::deleteConfirmed);
+        private VideoLibrary.Item menuItem;
+        private List<HubDelete.Target> deleteTargets = new ArrayList<>();
+        private String deleteName = "";
         private final FocusRing focusRing = new FocusRing(this);
         private boolean ghosting;
         private long tabAt = -1;
@@ -437,12 +441,8 @@ public class HubMoviesActivity extends Activity {
                     }
                 }
             }
-            if (menu.isOpen() && s.type == ROOT && !tabsFocused) {
-                Row r = rows.get(homeRow);
-                float x = 112 + (homeCol[homeRow] - homeFirst[homeRow]) * (CARD_W + CARD_GAP), y = rowTop(homeRow) - homeScroll + ROW_CARDS;
-                rect.set(x * k, y * k, (x + CARD_W) * k, (y + CARD_H) * k);
-                menu.draw(getContext(), c, rect, k, h, fill, stroke);
-            }
+            if (menu.isOpen() && s.type == ROOT && !tabsFocused && menuAnchor(rect)) menu.draw(getContext(), c, rect, k, h, fill, stroke);
+            deleting.draw(getContext(), c, w, h, k, fill, stroke);
             if (running && (revealing || s.leaving || ArtFade.settling() || tabSlide() < 1f)) postInvalidateOnAnimation();
             else if (running && (backdrop.active() || animating)) postInvalidateDelayed(40);
             else if (running && library != null && (library.indexing != null || library.matching != null)) postInvalidateDelayed(1000);
@@ -1366,12 +1366,83 @@ public class HubMoviesActivity extends Activity {
             }
         }
 
-        private boolean openMenu() {
-            if (library == null || stack.size() != 1 || tabsFocused || tabs.isEmpty() || currentTab() != HOME || rows.isEmpty()) return false;
-            Row r = rows.get(homeRow);
-            if (r.kind != 0 || homeCol[homeRow] >= r.items.size()) return false;
-            menu.open();
+        private VideoLibrary.Item menuTarget() {
+            if (library == null || stack.size() != 1 || tabsFocused || tabs.isEmpty()) return null;
+            int kind = currentTab();
+            if (kind == HOME) {
+                if (rows.isEmpty()) return null;
+                Row r = rows.get(homeRow);
+                return homeCol[homeRow] < r.items.size() ? r.items.get(homeCol[homeRow]) : null;
+            }
+            List<VideoLibrary.Item> list = listOf(kind);
+            return gridFocus[kind] < list.size() ? list.get(gridFocus[kind]) : null;
+        }
+
+        private boolean menuAnchor(RectF out) {
+            int kind = currentTab();
+            float x, y, width, height;
+            if (kind == HOME) {
+                Row r = rows.get(homeRow);
+                float step = r.still ? CARD_W + CARD_GAP : POSTER_W + POSTER_GAP;
+                x = 112 + (homeCol[homeRow] - homeFirst[homeRow]) * step;
+                y = rowTop(homeRow) - homeScroll + ROW_CARDS;
+                width = r.still ? CARD_W : POSTER_W;
+                height = r.still ? CARD_H : POSTER_H;
+            } else if (kind == OTHERS) {
+                x = 112 + Glass.PLATE_INSET;
+                y = 316 + Glass.PLATE_INSET + (gridFocus[kind] - gridScroll[kind]) * (Glass.ROW_H + Glass.ROW_GAP);
+                width = 1696 - 2 * Glass.PLATE_INSET;
+                height = Glass.ROW_H;
+            } else {
+                int focus = gridFocus[kind];
+                x = 112 + focus % COLS * (1696 - POSTER_W) / (COLS - 1f);
+                y = GRID_TOP + focus / COLS * GRID_STRIDE - gridOffset;
+                width = POSTER_W;
+                height = POSTER_H;
+            }
+            out.set(x * k, y * k, (x + width) * k, (y + height) * k);
             return true;
+        }
+
+        private boolean openMenu() {
+            VideoLibrary.Item it = menuTarget();
+            if (it == null) return false;
+            boolean watchNext = currentTab() == HOME && rows.get(homeRow).kind == 0;
+            boolean deletable = it.isShow() || it.playable();
+            if (watchNext) menu.open(ContinueMenu.DETAILS, ContinueMenu.REMOVE, ContinueMenu.DELETE);
+            else if (deletable) menu.open(ContinueMenu.DETAILS, ContinueMenu.DELETE);
+            else return false;
+            menuItem = it;
+            return true;
+        }
+
+        private void askDelete(VideoLibrary.Item it) {
+            List<VideoLibrary.Item> files = it.isShow() ? library.episodes(it) : Collections.singletonList(it);
+            deleteTargets = new ArrayList<>();
+            for (VideoLibrary.Item f : files) {
+                if (f.path.isEmpty()) continue;
+                if (f.rev <= 0) {
+                    deleting.notice(HubDelete.OLD_HUB);
+                    return;
+                }
+                deleteTargets.add(new HubDelete.Target(f.path, f.rev));
+            }
+            if (deleteTargets.isEmpty()) return;
+            deleteName = it.title;
+            int n = deleteTargets.size();
+            String meta = it.isShow() ? n + (n == 1 ? " episode" : " episodes")
+                    : (it.year > 0 ? it.year + (it.runtime > 0 ? " \u00b7 " : "") : "") + (it.runtime > 0 ? VideoLibrary.length(it.runtime) : "");
+            deleting.open("Delete \u201c" + it.title + "\u201d?", meta, "This deletes the file on the hub. If that folder has recovery set up in arca you can restore it there; otherwise it is gone.");
+        }
+
+        private void deleteConfirmed() {
+            deleting.working();
+            String name = deleteName;
+            HubDelete.file(getContext(), library.volume, deleteTargets, (removed, error) -> {
+                if (!removed.isEmpty()) refresh();
+                deleting.notice(error != null ? error : "Deleted \u201c" + name + "\u201d");
+                invalidate();
+            });
         }
 
         private void toggleWatched() {
@@ -1528,15 +1599,17 @@ public class HubMoviesActivity extends Activity {
         }
 
         private void runMenu() {
-            Row r = rows.isEmpty() ? null : rows.get(homeRow);
-            if (r == null || r.kind != 0 || homeCol[homeRow] >= r.items.size()) {
+            VideoLibrary.Item it = menuItem;
+            if (it == null) {
                 menu.close();
                 return;
             }
-            VideoLibrary.Item it = r.items.get(homeCol[homeRow]);
-            if (menu.choose() == ContinueMenu.DETAILS) {
+            int action = menu.choose();
+            if (action == ContinueMenu.DETAILS) {
                 VideoLibrary.Item target = it.isEpisode() ? library.showOf(it) : it;
                 if (target != null) open(target);
+            } else if (action == ContinueMenu.DELETE) {
+                askDelete(it);
             } else {
                 Watching.get(getContext()).hide(it.id, () -> {
                     rebuild();
@@ -1574,6 +1647,7 @@ public class HubMoviesActivity extends Activity {
         }
 
         boolean onKey(KeyEvent e) {
+            if (deleting.isOpen()) return deleting.onKey(e);
             if (menu.isOpen()) return menuKey(e);
             if (top().leaving && e.getKeyCode() != KeyEvent.KEYCODE_BACK) return true;
             boolean down = e.getAction() == KeyEvent.ACTION_DOWN;

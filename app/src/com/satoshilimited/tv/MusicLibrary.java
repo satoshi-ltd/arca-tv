@@ -21,6 +21,7 @@ final class MusicLibrary {
     static final class Track {
         String title = "", artist = "", album = "", albumArtist = "", hash = "", path = "", cover = "";
         int number, disc, year, seconds;
+        long rev;
     }
 
     static final class Album {
@@ -66,6 +67,7 @@ final class MusicLibrary {
             t.hash = o.optString("hash");
             if (t.hash.isEmpty()) continue;
             t.path = o.optString("path");
+            t.rev = o.optLong("rev");
             t.title = o.optString("title", "");
             if (t.title.isEmpty()) t.title = fileName(t.path);
             t.artist = o.optString("artist", "");
@@ -162,5 +164,17 @@ final class MusicLibrary {
             prefs(c).edit().putString("recent", next.toString()).apply();
         } catch (Exception ignored) {
         }
+    }
+
+    void remove(Track gone) {
+        for (Album a : albums) a.tracks.remove(gone);
+        for (Artist ar : artists) {
+            ar.tracks.remove(gone);
+            for (Album a : ar.albums) a.tracks.remove(gone);
+            ar.albums.removeIf(a -> a.tracks.isEmpty());
+        }
+        for (Playlist p : playlists) p.tracks.remove(gone);
+        albums.removeIf(a -> a.tracks.isEmpty());
+        artists.removeIf(ar -> ar.tracks.isEmpty());
     }
 }

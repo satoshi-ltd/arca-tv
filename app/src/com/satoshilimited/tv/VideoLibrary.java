@@ -109,6 +109,7 @@ final class VideoLibrary {
         String id = "", kind = "", title = "", overview = "", certification = "", collection = "", poster = "", backdrop = "", still = "";
         String show = "", added = "", aired = "", path = "", hash = "", container = "", videoCodec = "", sortKey;
         int year, runtime, season, episode, width, height;
+        long rev;
         double rating, duration, position, positionDuration;
         String ratingText = "";
         boolean kids, watched;
@@ -387,6 +388,7 @@ final class VideoLibrary {
         strings(o.optJSONArray("subtitleLanguages"), it.subtitleLanguages);
         it.path = str(o, "path");
         it.hash = str(o, "hash");
+        it.rev = o.optLong("rev");
         it.container = str(o, "container");
         it.videoCodec = str(o, "videoCodec");
         strings(o.optJSONArray("related"), it.related);
