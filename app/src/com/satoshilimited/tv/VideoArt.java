@@ -120,7 +120,8 @@ final class VideoArt {
                 byte[] raw = f.exists() ? Files.readAllBytes(f.toPath()) : null;
                 fetched = raw == null;
                 if (raw == null) {
-                    String volume = ArcaHub.volume(c, "video");
+                    String volume = VideoLibrary.artVolume(key);
+                    if (volume == null) volume = ArcaHub.volume(c, "video");
                     String body = ArcaHub.get(c, "/v1/video/art?volume=" + URLEncoder.encode(volume, "UTF-8") + "&key=" + URLEncoder.encode(key, "UTF-8")
                             + "&size=" + (size == LARGE ? "large" : "small"), 12_000_000);
                     JSONObject o = new JSONObject(body);

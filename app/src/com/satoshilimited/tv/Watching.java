@@ -151,7 +151,7 @@ final class Watching {
         if (lib == null || !lib.hidden(id)) return;
         io.execute(() -> {
             try {
-                ArcaHub.post(context, "/v1/video/watch-next/remove", new JSONObject().put("volume", lib.volume).put("id", id));
+                ArcaHub.post(context, "/v1/video/watch-next/remove", new JSONObject().put("volume", VideoLibrary.volumeOf(id)).put("id", VideoLibrary.hubId(id)));
             } catch (Exception e) {
                 AppLog.w("arca video remove: " + e.getMessage());
                 main.post(() -> {

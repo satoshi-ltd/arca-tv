@@ -184,7 +184,7 @@ final class VideoPlayer {
             startCompatible(Math.max(0, startMs), 0);
             return;
         }
-        String volume = ArcaHub.volume(context, "video");
+        String volume = v.volume;
         try {
             String base = ArcaHub.url(context);
             Uri media = Uri.parse(base + "/v1/video/media?volume=" + encode(volume) + "&path=" + encode(v.path) + "&hash=" + encode(v.hash));
@@ -250,7 +250,7 @@ final class VideoPlayer {
     private void startCompatible(long startMs, int attempt) {
         int session = generation;
         VideoLibrary.Item v = current;
-        String volume = ArcaHub.volume(context, "video");
+        String volume = v.volume;
         String copy = copyCodecs();
         int audio = audioStream;
         io.execute(() -> {
@@ -344,7 +344,7 @@ final class VideoPlayer {
         String key = v.hash + ":" + s.stream;
         if (recentlyUnreadable(key) || loaded.contains(s.stream) || !fetching.add(s.stream)) return;
         int session = generation;
-        String volume = ArcaHub.volume(context, "video");
+        String volume = v.volume;
         subtitleIo.execute(() -> {
             long deadline = SystemClock.uptimeMillis() + SUBTITLE_MAX_MS;
             while (session == generation && SystemClock.uptimeMillis() < deadline) {

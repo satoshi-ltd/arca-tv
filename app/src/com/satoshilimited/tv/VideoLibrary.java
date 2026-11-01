@@ -41,7 +41,7 @@ final class VideoLibrary {
     }
 
     static final class Entry {
-        String id = "", reason = "", title = "", caption = "", tag = "", art = "";
+        String id = "", volume = "", reason = "", title = "", caption = "", tag = "", art = "";
         float progress;
     }
 
@@ -107,7 +107,7 @@ final class VideoLibrary {
 
     static final class Item {
         String id = "", kind = "", title = "", overview = "", certification = "", collection = "", poster = "", backdrop = "", still = "";
-        String show = "", added = "", aired = "", path = "", hash = "", container = "", videoCodec = "", sortKey;
+        String show = "", added = "", aired = "", path = "", hash = "", container = "", videoCodec = "", volume = "", sortKey;
         int year, runtime, season, episode, width, height;
         long rev;
         double rating, duration, position, positionDuration;
@@ -194,7 +194,7 @@ final class VideoLibrary {
         for (Runnable r : LISTENERS) r.run();
     }
 
-    final String volume;
+    final List<String> volumes;
     String version = "", tmdb = "none";
     Progress indexing, matching;
     final List<Item> movies = new ArrayList<>(), grownMovies = new ArrayList<>(), shows = new ArrayList<>(), others = new ArrayList<>();
@@ -202,29 +202,52 @@ final class VideoLibrary {
     private List<Item> kidsCache = new ArrayList<>();
     private final Map<String, Item> byId = new HashMap<>();
     private final Map<String, Item> showOfEpisode = new HashMap<>();
+    private final Map<String, String> artVolumes = new HashMap<>();
 
-    private VideoLibrary(String volume) {
-        this.volume = volume;
+    private VideoLibrary(List<String> volumes) {
+        this.volumes = volumes;
     }
 
     static synchronized VideoLibrary current() {
         return current;
     }
 
+    static String hubId(String id) {
+        return id.substring(id.indexOf('/') + 1);
+    }
+
+    static String volumeOf(String id) {
+        int slash = id.indexOf('/');
+        return slash < 0 ? "" : id.substring(0, slash);
+    }
+
+    static synchronized String artVolume(String key) {
+        return current == null ? null : current.artVolumes.get(key);
+    }
+
     static synchronized VideoLibrary cached(Context c) {
-        String volume = ArcaHub.volume(c, "video");
-        if (volume.isEmpty()) return null;
-        synchronized (VideoLibrary.class) {
-            if (current != null && current.volume.equals(volume)) return current;
+        List<String> volumes = ArcaHub.volumes(c, "video");
+        if (volumes.isEmpty()) return null;
+        if (current != null && current.volumes.equals(volumes)) return current;
+        List<VideoLibrary> parts = new ArrayList<>();
+        for (String volume : volumes) {
+            VideoLibrary part = part(c, volume);
+            if (part != null) parts.add(part);
         }
+        if (parts.isEmpty()) return null;
+        current = merge(volumes, parts);
+        return current;
+    }
+
+    private static VideoLibrary part(Context c, String volume) {
+        VideoLibrary part = PARTS.get(volume);
+        if (part != null) return part;
         try {
             File f = file(c, volume);
             if (!f.exists()) return null;
-            VideoLibrary lib = parse(volume, new JSONObject(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
-            synchronized (VideoLibrary.class) {
-                if (current == null || !current.volume.equals(volume)) current = lib;
-                return current;
-            }
+            part = parse(volume, new JSONObject(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
+            PARTS.put(volume, part);
+            return part;
         } catch (Exception e) {
             AppLog.w("arca video cache: " + e.getClass().getSimpleName());
             return null;
@@ -232,6 +255,7 @@ final class VideoLibrary {
     }
 
     private static final Object FETCHING = new Object();
+    private static final Map<String, VideoLibrary> PARTS = new HashMap<>();
 
     static VideoLibrary fetch(Context c) throws Exception {
         synchronized (FETCHING) {
@@ -241,36 +265,65 @@ final class VideoLibrary {
 
     private static VideoLibrary fetchNow(Context c) throws Exception {
         long requestGeneration = generation;
-        String volume = ArcaHub.volume(c, "video");
-        if (volume.isEmpty()) throw new IOException("no video folder");
+        List<String> volumes = ArcaHub.volumes(c, "video");
+        if (volumes.isEmpty()) throw new IOException("no video folder");
         VideoLibrary known = cached(c);
-        String path = "/v1/video/library?volume=" + URLEncoder.encode(volume, "UTF-8");
-        if (known != null && !known.version.isEmpty()) path += "&version=" + URLEncoder.encode(known.version, "UTF-8");
-        String body = ArcaHub.get(c, path, MAX_BYTES);
-        JSONObject o = new JSONObject(body);
+        List<VideoLibrary> parts = new ArrayList<>();
+        boolean changedAny = known == null || !known.volumes.equals(volumes);
+        Exception failure = null;
+        for (String volume : volumes) {
+            VideoLibrary old;
+            synchronized (VideoLibrary.class) {
+                old = part(c, volume);
+            }
+            try {
+                String path = "/v1/video/library?volume=" + URLEncoder.encode(volume, "UTF-8");
+                if (old != null && !old.version.isEmpty()) path += "&version=" + URLEncoder.encode(old.version, "UTF-8");
+                String body = ArcaHub.get(c, path, MAX_BYTES);
+                JSONObject o = new JSONObject(body);
+                synchronized (VideoLibrary.class) {
+                    if (requestGeneration != generation || !volumes.equals(ArcaHub.volumes(c, "video"))) throw new IOException("video library changed");
+                    if (o.optBoolean("unchanged") && old != null) {
+                        old.status(o);
+                        parts.add(old);
+                        continue;
+                    }
+                    VideoLibrary part = parse(volume, o);
+                    PARTS.put(volume, part);
+                    parts.add(part);
+                    changedAny = true;
+                    try {
+                        File f = file(c, volume);
+                        File tmp = new File(f.getPath() + ".tmp");
+                        Files.write(tmp.toPath(), body.getBytes(StandardCharsets.UTF_8));
+                        if (!tmp.renameTo(f)) tmp.delete();
+                    } catch (Exception e) {
+                        AppLog.w("arca video cache not saved: " + e.getClass().getSimpleName());
+                    }
+                }
+            } catch (Exception e) {
+                if (requestGeneration != generation || ArcaHub.REVOKED.equals(e.getMessage())) throw e;
+                AppLog.w("arca video library " + volume + ": " + e.getMessage());
+                if (failure == null) failure = e;
+                if (old != null) parts.add(old);
+            }
+        }
         synchronized (VideoLibrary.class) {
-            if (requestGeneration != generation || !volume.equals(ArcaHub.volume(c, "video"))) throw new IOException("video library changed");
-            if (o.optBoolean("unchanged") && known != null) {
-                known.status(o);
+            if (requestGeneration != generation || !volumes.equals(ArcaHub.volumes(c, "video"))) throw new IOException("video library changed");
+            if (parts.isEmpty()) throw failure != null ? failure : new IOException("no video folder");
+            if (!changedAny && current == known && known != null) {
+                known.status(parts);
                 return known;
             }
-            VideoLibrary lib = parse(volume, o);
-            current = lib;
-            try {
-                File f = file(c, volume);
-                File tmp = new File(f.getPath() + ".tmp");
-                Files.write(tmp.toPath(), body.getBytes(StandardCharsets.UTF_8));
-                if (!tmp.renameTo(f)) tmp.delete();
-            } catch (Exception e) {
-                AppLog.w("arca video cache not saved: " + e.getClass().getSimpleName());
-            }
-            return lib;
+            current = merge(volumes, parts);
+            return current;
         }
     }
 
     static synchronized void forget(Context c) {
         generation++;
         current = null;
+        PARTS.clear();
         File[] files = c.getCacheDir().listFiles((dir, name) -> name.startsWith("video-library-"));
         if (files != null) for (File f : files) f.delete();
         VideoArt.forget(c);
@@ -279,6 +332,47 @@ final class VideoLibrary {
 
     private static File file(Context c, String volume) {
         return new File(c.getCacheDir(), "video-library-" + java.util.UUID.nameUUIDFromBytes(volume.getBytes(StandardCharsets.UTF_8)).toString() + ".json");
+    }
+
+    private static VideoLibrary merge(List<String> volumes, List<VideoLibrary> parts) {
+        VideoLibrary lib = new VideoLibrary(volumes);
+        for (VideoLibrary part : parts) {
+            lib.movies.addAll(part.movies);
+            lib.shows.addAll(part.shows);
+            lib.others.addAll(part.others);
+            lib.byId.putAll(part.byId);
+            lib.showOfEpisode.putAll(part.showOfEpisode);
+            lib.artVolumes.putAll(part.artVolumes);
+            lib.continueIds.addAll(part.continueIds);
+            lib.nextUpIds.addAll(part.nextUpIds);
+            lib.watchNext.addAll(part.watchNext);
+        }
+        lib.status(parts);
+        Collections.sort(lib.movies, BY_TITLE);
+        Collections.sort(lib.shows, BY_TITLE);
+        Collections.sort(lib.others, BY_TITLE);
+        for (Item it : lib.movies) if (!it.kids) lib.grownMovies.add(it);
+        lib.indexKids();
+        return lib;
+    }
+
+    private void status(List<VideoLibrary> parts) {
+        tmdb = "none";
+        indexing = null;
+        matching = null;
+        for (VideoLibrary part : parts) {
+            if (tmdb.equals("none") || part.tmdb.equals("connected")) tmdb = part.tmdb;
+            indexing = sum(indexing, part.indexing);
+            matching = sum(matching, part.matching);
+        }
+    }
+
+    private static Progress sum(Progress a, Progress b) {
+        if (b == null) return a;
+        Progress p = new Progress();
+        p.done = (a == null ? 0 : a.done) + b.done;
+        p.total = (a == null ? 0 : a.total) + b.total;
+        return p;
     }
 
     private void status(JSONObject o) {
@@ -297,16 +391,16 @@ final class VideoLibrary {
     }
 
     static VideoLibrary parse(String volume, JSONObject root) throws Exception {
-        VideoLibrary lib = new VideoLibrary(volume);
+        VideoLibrary lib = new VideoLibrary(Collections.singletonList(volume));
         lib.status(root);
         JSONArray list = root.optJSONArray("movies");
-        for (int i = 0; list != null && i < list.length(); i++) lib.add(lib.movies, item(list.getJSONObject(i), "movie"));
+        for (int i = 0; list != null && i < list.length(); i++) lib.add(lib.movies, item(list.getJSONObject(i), "movie", volume));
         list = root.optJSONArray("other");
-        for (int i = 0; list != null && i < list.length(); i++) lib.add(lib.others, item(list.getJSONObject(i), "other"));
+        for (int i = 0; list != null && i < list.length(); i++) lib.add(lib.others, item(list.getJSONObject(i), "other", volume));
         list = root.optJSONArray("shows");
         for (int i = 0; list != null && i < list.length(); i++) {
             JSONObject o = list.getJSONObject(i);
-            Item show = item(o, "show");
+            Item show = item(o, "show", volume);
             JSONArray seasons = o.optJSONArray("seasons");
             for (int s = 0; seasons != null && s < seasons.length(); s++) {
                 JSONObject so = seasons.getJSONObject(s);
@@ -315,30 +409,33 @@ final class VideoLibrary {
                 season.name = so.isNull("name") || so.optString("name", "").isEmpty() ? (season.number == 0 ? "Specials" : "Season " + season.number) : so.optString("name");
                 JSONArray eps = so.optJSONArray("episodes");
                 for (int e = 0; eps != null && e < eps.length(); e++) {
-                    Item ep = item(eps.getJSONObject(e), "episode");
+                    Item ep = item(eps.getJSONObject(e), "episode", volume);
                     if (ep.show.isEmpty()) ep.show = show.id;
                     season.episodes.add(ep);
                     lib.byId.put(ep.id, ep);
                     lib.showOfEpisode.put(ep.id, show);
+                    lib.art(ep);
                 }
                 if (!season.episodes.isEmpty()) show.seasons.add(season);
             }
             show.seasons.sort((a, b) -> Boolean.compare(a.number == 0, b.number == 0));
             lib.add(lib.shows, show);
         }
-        strings(root.optJSONArray("continue"), lib.continueIds);
-        strings(root.optJSONArray("nextUp"), lib.nextUpIds);
+        ids(root.optJSONArray("continue"), volume, lib.continueIds);
+        ids(root.optJSONArray("nextUp"), volume, lib.nextUpIds);
         JSONArray watchNext = root.optJSONArray("watchNext");
         for (int i = 0; watchNext != null && i < watchNext.length(); i++) {
             JSONObject e = watchNext.optJSONObject(i);
             if (e == null || !REASONS.contains(e.optString("reason"))) continue;
             Entry entry = new Entry();
-            entry.id = e.optString("id");
+            entry.id = volume + "/" + e.optString("id");
+            entry.volume = volume;
             entry.reason = e.optString("reason");
             entry.title = e.isNull("title") ? "" : e.optString("title");
             entry.caption = e.isNull("caption") ? "" : e.optString("caption");
             entry.tag = e.isNull("tag") ? "" : e.optString("tag");
             entry.art = e.isNull("art") ? "" : e.optString("art");
+            if (!entry.art.isEmpty()) lib.artVolumes.put(entry.art, volume);
             entry.progress = e.isNull("progress") ? 0f : (float) Math.max(0, Math.min(100, e.optDouble("progress", 0))) / 100f;
             lib.watchNext.add(entry);
         }
@@ -353,16 +450,26 @@ final class VideoLibrary {
     private void add(List<Item> into, Item it) {
         into.add(it);
         byId.put(it.id, it);
+        art(it);
+    }
+
+    private void art(Item it) {
+        for (String key : new String[] {it.poster, it.backdrop, it.still}) if (!key.isEmpty()) artVolumes.put(key, it.volume);
+    }
+
+    private static void ids(JSONArray a, String volume, List<String> out) {
+        for (int i = 0; a != null && i < a.length(); i++) out.add(volume + "/" + a.optString(i));
     }
 
     private static void strings(JSONArray a, List<String> out) {
         for (int i = 0; a != null && i < a.length(); i++) out.add(a.optString(i));
     }
 
-    private static Item item(JSONObject o, String kind) {
+    private static Item item(JSONObject o, String kind, String volume) {
         Item it = new Item();
         it.kind = kind;
-        it.id = str(o, "id");
+        it.volume = volume;
+        it.id = volume + "/" + str(o, "id");
         it.title = str(o, "title");
         if (it.title.isEmpty()) it.title = name(str(o, "path"));
         it.year = o.optInt("year");
@@ -377,7 +484,7 @@ final class VideoLibrary {
         it.poster = key(o, "poster");
         it.backdrop = key(o, "backdrop");
         it.still = key(o, "still");
-        it.show = str(o, "show");
+        it.show = str(o, "show").isEmpty() ? "" : volume + "/" + str(o, "show");
         it.season = o.optInt("season");
         it.episode = o.optInt("episode");
         it.aired = str(o, "aired");
@@ -391,7 +498,7 @@ final class VideoLibrary {
         it.rev = o.optLong("rev");
         it.container = str(o, "container");
         it.videoCodec = str(o, "videoCodec");
-        strings(o.optJSONArray("related"), it.related);
+        ids(o.optJSONArray("related"), volume, it.related);
         it.duration = o.optDouble("duration", 0);
         if (Double.isNaN(it.duration)) it.duration = 0;
         it.width = o.optInt("width");

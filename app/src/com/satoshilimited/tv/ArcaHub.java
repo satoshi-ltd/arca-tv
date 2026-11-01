@@ -65,6 +65,18 @@ final class ArcaHub {
         return prefs(c).getString(kind, "");
     }
 
+    static List<String> volumes(Context c, String kind) {
+        List<String> out = new ArrayList<>();
+        try {
+            JSONArray all = new JSONArray(prefs(c).getString(kind + ":all", "[]"));
+            for (int i = 0; i < all.length(); i++) if (!all.optString(i).isEmpty()) out.add(all.optString(i));
+        } catch (Exception ignored) {
+        }
+        String first = volume(c, kind);
+        if (out.isEmpty() && !first.isEmpty()) out.add(first);
+        return out;
+    }
+
     static boolean has(Context c, String kind) {
         return connected(c) && !volume(c, kind).isEmpty();
     }
@@ -231,8 +243,14 @@ final class ArcaHub {
     private static Set<String> playedFolders(SharedPreferences p) {
         Set<String> ids = new LinkedHashSet<>();
         if (!p.getBoolean("player", false)) return ids;
-        for (String kind : new String[] {"photos", "music", "video"})
+        for (String kind : new String[] {"photos", "music"})
             if (!p.getString(kind, "").isEmpty()) ids.add(p.getString(kind, ""));
+        try {
+            JSONArray video = new JSONArray(p.getString("video:all", "[]"));
+            for (int i = 0; i < video.length(); i++) if (!video.optString(i).isEmpty()) ids.add(video.optString(i));
+        } catch (Exception ignored) {
+        }
+        if (!p.getString("video", "").isEmpty()) ids.add(p.getString("video", ""));
         return ids;
     }
 
@@ -291,7 +309,8 @@ final class ArcaHub {
                         if (!token.equals(p.getString("token", ""))) throw new IOException("hub changed");
                         p.edit().putString("photos", folders.photoIds.isEmpty() ? "" : folders.photoIds.get(0))
                                 .putString("music", folders.musicIds.isEmpty() ? "" : folders.musicIds.get(0))
-                                .putString("video", folders.videoIds.isEmpty() ? "" : folders.videoIds.get(0)).apply();
+                                .putString("video", folders.videoIds.isEmpty() ? "" : folders.videoIds.get(0))
+                                .putString("video:all", new JSONArray(folders.videoIds).toString()).apply();
                     }
                     if (!reported(app).equals(p.getString("reported", ""))) reportName(app);
                 } else {

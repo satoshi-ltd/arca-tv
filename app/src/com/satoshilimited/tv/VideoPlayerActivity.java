@@ -220,7 +220,7 @@ public class VideoPlayerActivity extends Activity {
         }
 
         private String scope(VideoLibrary.Item v) {
-            return v.isEpisode() ? v.show : v.id;
+            return VideoLibrary.hubId(v.isEpisode() ? v.show : v.id);
         }
 
         private void play(long startMs) {
@@ -270,7 +270,7 @@ public class VideoPlayerActivity extends Activity {
             Context c = getContext().getApplicationContext();
             io.execute(() -> {
                 try {
-                    JSONObject body = new JSONObject().put("volume", lib.volume).put("path", v.path).put("hash", v.hash)
+                    JSONObject body = new JSONObject().put("volume", v.volume).put("path", v.path).put("hash", v.hash)
                             .put("position", Math.round(seconds)).put("duration", Math.round(total));
                     JSONObject reply = new JSONObject(ArcaHub.post(c, "/v1/video/position", body));
                     handler.post(() -> lib.progressed(v, seconds, total, reply.optBoolean("finished")));
@@ -379,9 +379,9 @@ public class VideoPlayerActivity extends Activity {
             io.execute(() -> {
                 try {
                     if (Math.round(total) <= 0) {
-                        ArcaHub.post(c, "/v1/video/watched", new JSONObject().put("volume", lib.volume).put("path", v.path).put("hash", v.hash).put("watched", true));
+                        ArcaHub.post(c, "/v1/video/watched", new JSONObject().put("volume", v.volume).put("path", v.path).put("hash", v.hash).put("watched", true));
                     } else {
-                        JSONObject body = new JSONObject().put("volume", lib.volume).put("path", v.path).put("hash", v.hash)
+                        JSONObject body = new JSONObject().put("volume", v.volume).put("path", v.path).put("hash", v.hash)
                                 .put("position", Math.round(total)).put("duration", Math.round(total));
                         ArcaHub.post(c, "/v1/video/position", body);
                     }

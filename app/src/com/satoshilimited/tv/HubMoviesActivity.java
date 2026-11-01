@@ -148,6 +148,7 @@ public class HubMoviesActivity extends Activity {
         private final DeleteDialog deleting = new DeleteDialog(this, this::deleteConfirmed);
         private VideoLibrary.Item menuItem;
         private List<HubDelete.Target> deleteTargets = new ArrayList<>();
+        private String deleteVolume = "";
         private String deleteName = "";
         private final FocusRing focusRing = new FocusRing(this);
         private boolean ghosting;
@@ -1198,7 +1199,7 @@ public class HubMoviesActivity extends Activity {
             invalidate();
             io.execute(() -> {
                 try {
-                    JSONObject body = new JSONObject().put("volume", ArcaHub.volume(getContext(), "video")).put("path", it.path).put("hash", it.hash).put("watched", watched);
+                    JSONObject body = new JSONObject().put("volume", it.volume).put("path", it.path).put("hash", it.hash).put("watched", watched);
                     ArcaHub.post(getContext(), "/v1/video/watched", body);
                 } catch (Exception e) {
                     AppLog.w("arca video watched: " + e.getMessage());
@@ -1220,7 +1221,7 @@ public class HubMoviesActivity extends Activity {
             io.execute(() -> {
                 for (VideoLibrary.Item e : changing) {
                     try {
-                        JSONObject body = new JSONObject().put("volume", ArcaHub.volume(getContext(), "video")).put("path", e.path).put("hash", e.hash).put("watched", watched);
+                        JSONObject body = new JSONObject().put("volume", e.volume).put("path", e.path).put("hash", e.hash).put("watched", watched);
                         ArcaHub.post(getContext(), "/v1/video/watched", body);
                     } catch (Exception ex) {
                         AppLog.w("arca video watched: " + ex.getMessage());
@@ -1419,6 +1420,7 @@ public class HubMoviesActivity extends Activity {
         private void askDelete(VideoLibrary.Item it) {
             List<VideoLibrary.Item> files = it.isShow() ? library.episodes(it) : Collections.singletonList(it);
             deleteTargets = new ArrayList<>();
+            deleteVolume = it.volume;
             for (VideoLibrary.Item f : files) {
                 if (f.path.isEmpty()) continue;
                 if (f.rev <= 0) {
@@ -1438,7 +1440,7 @@ public class HubMoviesActivity extends Activity {
         private void deleteConfirmed() {
             deleting.working();
             String name = deleteName;
-            HubDelete.file(getContext(), library.volume, deleteTargets, (removed, error) -> {
+            HubDelete.file(getContext(), deleteVolume, deleteTargets, (removed, error) -> {
                 if (!removed.isEmpty()) refresh();
                 deleting.notice(error != null ? error : "Deleted \u201c" + name + "\u201d");
                 invalidate();
