@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- Movies: a movie or show page has a Trailer button at the end of the row that opens the official trailer in YouTube. It is a round button with a clapperboard that grows into a Trailer pill when focused, and it shows only for titles that are not for kids, while the hub and the internet are reachable. Needs arca 0.8.27 on the hub.
+- Movies reads every video folder the hub shares, not only the first; playback, positions, watched marks, deletes and Watch next removals reach the right folder.
+- Holding OK on a Watch next card on Home opens its menu again (Details, Remove from Watch next); since 1.2.1 it opened empty.
+
 ## 1.2.1
 
 - Delete from the TV: hold OK on a movie, show, song or photo and choose Delete…, then hold OK to confirm. Needs arca 0.8.9 on the hub; recovery is arca's own history when the folder keeps one.

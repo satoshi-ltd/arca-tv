@@ -1,6 +1,7 @@
 package com.satoshilimited.tv;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -12,6 +13,9 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.BitmapShader;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -149,6 +153,7 @@ public class HubMoviesActivity extends Activity {
         private VideoLibrary.Item menuItem;
         private List<HubDelete.Target> deleteTargets = new ArrayList<>();
         private String deleteVolume = "";
+        private boolean trailers;
         private String deleteName = "";
         private final FocusRing focusRing = new FocusRing(this);
         private boolean ghosting;
@@ -209,8 +214,10 @@ public class HubMoviesActivity extends Activity {
                     AppLog.w("arca video library: " + e.getClass().getSimpleName());
                 }
                 final VideoLibrary result = lib;
+                final boolean canTrailer = online(getContext()) && trailerIntent("aaaaaaaaaaa").resolveActivity(getContext().getPackageManager()) != null;
                 handler.post(() -> {
                     polling = false;
+                    trailers = canTrailer;
                     loading = false;
                     if (result != null) {
                         library = result;
@@ -222,6 +229,29 @@ public class HubMoviesActivity extends Activity {
                     invalidate();
                 });
             });
+        }
+
+        private static boolean online(Context c) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
+                NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+                return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+            } catch (RuntimeException e) {
+                return false;
+            }
+        }
+
+        private static Intent trailerIntent(String key) {
+            return new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=" + key)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+
+        private void openTrailer(VideoLibrary.Item it) {
+            try {
+                getContext().startActivity(trailerIntent(it.trailer));
+            } catch (ActivityNotFoundException e) {
+                trailers = false;
+                invalidate();
+            }
         }
 
         private void rebuild() {
@@ -1032,6 +1062,8 @@ public class HubMoviesActivity extends Activity {
             return moving;
         }
 
+        private static final String[] TRAILER = {"trailer", "Trailer", "", ""};
+
         private List<String[]> buttons(Screen s) {
             VideoLibrary.Item it = s.item;
             List<String[]> list = new ArrayList<>();
@@ -1053,6 +1085,7 @@ public class HubMoviesActivity extends Activity {
                 }
                 list.add(new String[] {"mark", it.watched ? "Mark as unwatched" : "Mark as watched", "", ""});
             }
+            if (trailers && library.hasTrailer(it)) list.add(TRAILER);
             return list;
         }
 
@@ -1063,8 +1096,9 @@ public class HubMoviesActivity extends Activity {
             for (int i = 0; i < list.size(); i++) {
                 String[] b = list.get(i);
                 boolean focused = i == s.button && s.zone == Z_BUTTONS;
-                int icon = "resume".equals(b[0]) ? R.drawable.icon_video : "start".equals(b[0]) ? R.drawable.icon_restart : b[1].contains("unwatched") ? R.drawable.icon_eye_off : R.drawable.icon_eye;
-                float width = 36 * k + 28 * k + 14 * k + chipPaint.measureText(b[1]) + (b[2].isEmpty() ? 0 : 14 * k + tileSub.measureText(b[2])) + 36 * k;
+                int icon = "resume".equals(b[0]) ? R.drawable.icon_video : "start".equals(b[0]) ? R.drawable.icon_restart : b == TRAILER ? R.drawable.icon_trailer : b[1].contains("unwatched") ? R.drawable.icon_eye_off : R.drawable.icon_eye;
+                boolean round = b == TRAILER && !focused;
+                float width = round ? 72 * k : 36 * k + 28 * k + 14 * k + chipPaint.measureText(b[1]) + (b[2].isEmpty() ? 0 : 14 * k + tileSub.measureText(b[2])) + 36 * k;
                 rect.set(x, top * k, x + width, (top + 72) * k);
                 if (focused) {
                     fill.setColor(INK);
@@ -1073,7 +1107,11 @@ public class HubMoviesActivity extends Activity {
                     Glass.plate(c, rect, 36 * k, k, fill, stroke);
                 }
                 int ink = focused ? DARK : INK;
-                Icons.draw(getContext(), c, icon, rect.left + 36 * k + 14 * k, rect.centerY(), 28 * k, ink);
+                Icons.draw(getContext(), c, icon, round ? rect.centerX() : rect.left + 36 * k + 14 * k, rect.centerY(), 28 * k, ink);
+                if (round) {
+                    x += width + 18 * k;
+                    continue;
+                }
                 chipPaint.setColor(ink);
                 float tx = rect.left + 36 * k + 28 * k + 14 * k;
                 c.drawText(b[1], tx, rect.centerY() + Ui.halfCap(chipPaint), chipPaint);
@@ -1347,6 +1385,7 @@ public class HubMoviesActivity extends Activity {
                 String id = list.get(Math.min(s.button, list.size() - 1))[0];
                 if ("resume".equals(id)) play(s.item, false);
                 else if ("start".equals(id)) play(s.item, true);
+                else if ("trailer".equals(id)) openTrailer(s.item);
                 else mark(s.item, !s.item.watched);
                 return;
             }
@@ -1356,6 +1395,7 @@ public class HubMoviesActivity extends Activity {
                 String id = list.get(Math.min(s.button, list.size() - 1))[0];
                 VideoLibrary.Item next = library.toResume(s.item);
                 if ("resume".equals(id)) play(next, false);
+                else if ("trailer".equals(id)) openTrailer(s.item);
                 else if ("mark".equals(id)) markShow(s.item, !library.seen(s.item));
                 else {
                     List<VideoLibrary.Item> all = library.episodes(s.item);

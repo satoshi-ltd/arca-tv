@@ -1112,7 +1112,7 @@ final class HomeView extends View implements Choreographer.FrameCallback, HomeDa
                     if (e.getRepeatCount() == 0) okDown = true;
                     else if (e.getRepeatCount() == 1 && okDown && zone == Z_CARDS && cardIndex < watching.items().size() && !panelOpen && !sheetOpen) {
                         okDown = false;
-                        menu.open();
+                        menu.open(ContinueMenu.DETAILS, ContinueMenu.REMOVE);
                         invalidate();
                     }
                 } else {

@@ -107,7 +107,7 @@ final class VideoLibrary {
 
     static final class Item {
         String id = "", kind = "", title = "", overview = "", certification = "", collection = "", poster = "", backdrop = "", still = "";
-        String show = "", added = "", aired = "", path = "", hash = "", container = "", videoCodec = "", volume = "", sortKey;
+        String show = "", added = "", aired = "", path = "", hash = "", container = "", videoCodec = "", volume = "", trailer = "", sortKey;
         int year, runtime, season, episode, width, height;
         long rev;
         double rating, duration, position, positionDuration;
@@ -196,6 +196,8 @@ final class VideoLibrary {
 
     final List<String> volumes;
     String version = "", tmdb = "none";
+    boolean live;
+    private final java.util.Set<String> liveVolumes = new java.util.HashSet<>();
     Progress indexing, matching;
     final List<Item> movies = new ArrayList<>(), grownMovies = new ArrayList<>(), shows = new ArrayList<>(), others = new ArrayList<>();
     final List<String> continueIds = new CopyOnWriteArrayList<>(), nextUpIds = new CopyOnWriteArrayList<>();
@@ -255,6 +257,11 @@ final class VideoLibrary {
     }
 
     private static final Object FETCHING = new Object();
+    private static final java.util.regex.Pattern TRAILER = java.util.regex.Pattern.compile("[A-Za-z0-9_-]{11}");
+
+    boolean hasTrailer(Item it) {
+        return !it.trailer.isEmpty() && !it.kids && liveVolumes.contains(it.volume);
+    }
     private static final Map<String, VideoLibrary> PARTS = new HashMap<>();
 
     static VideoLibrary fetch(Context c) throws Exception {
@@ -285,10 +292,12 @@ final class VideoLibrary {
                     if (requestGeneration != generation || !volumes.equals(ArcaHub.volumes(c, "video"))) throw new IOException("video library changed");
                     if (o.optBoolean("unchanged") && old != null) {
                         old.status(o);
+                        old.live = true;
                         parts.add(old);
                         continue;
                     }
                     VideoLibrary part = parse(volume, o);
+                    part.live = true;
                     PARTS.put(volume, part);
                     parts.add(part);
                     changedAny = true;
@@ -305,7 +314,10 @@ final class VideoLibrary {
                 if (requestGeneration != generation || ArcaHub.REVOKED.equals(e.getMessage())) throw e;
                 AppLog.w("arca video library " + volume + ": " + e.getMessage());
                 if (failure == null) failure = e;
-                if (old != null) parts.add(old);
+                if (old != null) {
+                    old.live = false;
+                    parts.add(old);
+                }
             }
         }
         synchronized (VideoLibrary.class) {
@@ -360,7 +372,9 @@ final class VideoLibrary {
         tmdb = "none";
         indexing = null;
         matching = null;
+        liveVolumes.clear();
         for (VideoLibrary part : parts) {
+            if (part.live) liveVolumes.addAll(part.volumes);
             if (tmdb.equals("none") || part.tmdb.equals("connected")) tmdb = part.tmdb;
             indexing = sum(indexing, part.indexing);
             matching = sum(matching, part.matching);
@@ -481,6 +495,7 @@ final class VideoLibrary {
         it.ratingText = it.rating > 0 ? String.format(java.util.Locale.US, "%.1f", it.rating) : "";
         it.runtime = o.optInt("runtime");
         it.kids = o.optBoolean("kids");
+        it.trailer = TRAILER.matcher(str(o, "trailer")).matches() ? str(o, "trailer") : "";
         it.poster = key(o, "poster");
         it.backdrop = key(o, "backdrop");
         it.still = key(o, "still");
