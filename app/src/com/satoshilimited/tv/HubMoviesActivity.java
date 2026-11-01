@@ -15,7 +15,6 @@ import android.graphics.Shader;
 import android.graphics.BitmapShader;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -214,7 +213,7 @@ public class HubMoviesActivity extends Activity {
                     AppLog.w("arca video library: " + e.getClass().getSimpleName());
                 }
                 final VideoLibrary result = lib;
-                final boolean canTrailer = online(getContext()) && trailerIntent("aaaaaaaaaaa").resolveActivity(getContext().getPackageManager()) != null;
+                final boolean canTrailer = online(getContext()) && TrailerActivity.watch("aaaaaaaaaaa").resolveActivity(getContext().getPackageManager()) != null;
                 handler.post(() -> {
                     polling = false;
                     trailers = canTrailer;
@@ -241,13 +240,9 @@ public class HubMoviesActivity extends Activity {
             }
         }
 
-        private static Intent trailerIntent(String key) {
-            return new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=" + key)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        }
-
         private void openTrailer(VideoLibrary.Item it) {
             try {
-                getContext().startActivity(trailerIntent(it.trailer));
+                activity.startActivity(new Intent(activity, TrailerActivity.class).putExtra(TrailerActivity.KEY, it.trailer));
             } catch (ActivityNotFoundException e) {
                 trailers = false;
                 invalidate();

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.3
+
+- Trailers play full screen inside arca TV with YouTube's own player instead of leaving for the YouTube app, so Back or OK returns to the title page. YouTube's thumbnail, pause screen and end suggestions never show; a trailer YouTube does not allow to embed, or one that does not start, still opens in the YouTube app.
+
 ## 1.2.2
 
 - Movies: a movie or show page has a Trailer button at the end of the row that opens the official trailer in YouTube. It is a round button with a clapperboard that grows into a Trailer pill when focused, and it shows only for titles that are not for kids, while the hub and the internet are reachable. Needs arca 0.8.27 on the hub.
