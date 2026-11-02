@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4
+
+- A trailer playing inside arca TV no longer opens a second time in the YouTube app a few seconds after it starts.
+
 ## 1.2.3
 
 - Trailers play full screen inside arca TV with YouTube's own player instead of leaving for the YouTube app, so Back or OK returns to the title page. YouTube's thumbnail, pause screen and end suggestions never show; a trailer YouTube does not allow to embed, or one that does not start, still opens in the YouTube app.

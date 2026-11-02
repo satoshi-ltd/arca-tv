@@ -11,7 +11,9 @@ import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import java.util.regex.Pattern;
 
@@ -23,6 +25,7 @@ public class TrailerActivity extends Activity {
     private WebView web;
     private String key;
     private boolean playing;
+    private boolean leaving;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable stalled = () -> {
         if (!playing) fallback();
@@ -55,6 +58,11 @@ public class TrailerActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         web.setWebChromeClient(new WebChromeClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return true;
+            }
+        });
         web.addJavascriptInterface(new Bridge(), "arca");
         setContentView(web);
         web.loadDataWithBaseURL("https://" + getPackageName(), page(key), "text/html", "utf-8", null);
@@ -111,6 +119,8 @@ public class TrailerActivity extends Activity {
     }
 
     private void fallback() {
+        if (leaving || isFinishing()) return;
+        leaving = true;
         try {
             startActivity(watch(key));
         } catch (RuntimeException e) {
