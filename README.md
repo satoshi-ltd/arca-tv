@@ -144,7 +144,7 @@ The accessibility service asks only to see the keys, not the screen: it acts on 
 | --- | --- |
 | Everywhere | D-pad moves, **OK** opens, **Back** goes up one level |
 | Home | **Down** goes to the shelf, **OK** on *All apps* opens the grid; with arca domo, **Up** from *Watch next* (or from the shelf when that row is empty) focuses the weather corner and **OK** opens *Domo* |
-| arca domo | D-pad moves between rooms, **OK** opens one; in a room **Up/Down** moves between Power, Mode and Fan (or Start, Stop and Dock), **Left/Right** between choices, **OK** applies, **Back** returns to the rooms |
+| arca domo | D-pad moves between rooms and cameras, **OK** opens one (a camera opens full screen, **Left/Right** change camera); in a room **Up/Down** moves between Power, Mode and Fan (or Start, Stop and Dock), **Left/Right** between choices, **OK** applies, **Back** returns to the rooms |
 | Photos explorer | **Up/Down** scrolls (hold to accelerate: 1 row, then 2, then 4, then a month at a time), **Left/Right** moves, hold **Left/Right** or press fast-forward/rewind to jump a month, **OK** opens a photo, **Play/Pause** starts the slideshow |
 | Photo viewer | **Left/Right** previous and next, the slideshow runs on its own from the photo you opened, **OK** pauses and resumes it (or a video), **Back** returns to the explorer |
 | Music | **Left/Right** switches tab from the tab row, **Down** enters, in *Artists* **Right** moves into the albums, **Right** past *Playlists* reaches *Shuffle all*, the first tile of an artist's albums is that artist's *Shuffle*, **OK** plays, **Back** goes up one level |
@@ -178,10 +178,11 @@ The accessibility service asks only to see the keys, not the screen: it acts on 
 
 ### arca domo
 
-The home automation part of arca, read from your own domo server. Today it shows the air in every room and controls your air purifiers and robot vacuum.
+The home automation part of arca, read from your own domo server. Today it shows the air in every room, controls your air purifiers and robot vacuum and shows your cameras.
 
 - Appears when `domo.url` is set in `config.yaml`; set `domo.token` too so it can connect to your server. Without a URL, nothing about domo appears on the TV. There is no setup screen for it.
 - *Devices* lists every purifier, then the vacuum. PM2.5 is the largest number; the level (Excellent, Good, Light, Moderate, Heavy, Severe) is a word plus a six-step bar. Humidity and temperature appear only where the purifier reports them, and a *Filter* badge appears at 10 % or less.
+- Cameras: a *Cameras* section below the rooms, four 16:9 cards per row. Each card shows the latest picture and the camera's name; pictures refresh every 10 seconds only while they are on screen, and a camera that stops answering dims with *No response*. **OK** opens the camera full screen with its live video (the home server serves it as HLS, so the TV must decode the camera's codec, usually H.265); the title and controls fade after 5 seconds, **Left/Right** change camera and **Back** closes it. The home server allows 4 open streams at a time.
 - A reading's age shows only when it is old: in amber after 2 minutes, dimmed and *Out of date* after 5. A room that stops answering keeps its last values dimmed with *No response*.
 - Purifiers: Power, Mode (Auto, Sleep, Favorite) and Fan 0 to 14, which only works in Favorite. Vacuum: Start, Stop and Dock. Each press waits for the home server and then shows the state it returns; if the device doesn't answer, the control goes back and a short line says so.
 - The background follows the worst room: arca green while the air is Excellent or Good, amber at Light or Moderate, red at Heavy or Severe. Readings refresh every 10 seconds while *Domo* or Home is on screen.

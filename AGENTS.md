@@ -128,8 +128,8 @@ Troubleshooting:
   `unchanged`), `VideoArt` (posters, backdrops and stills, cached on disk by key), `HubMoviesActivity` (tabs, rows, grids, movie
   and show pages), `VideoPlayer` (ExoPlayer, Bearer header, tracks, cues) with `VideoPlayerActivity` (controls, panel, Up next,
   position saving) and `Watching` (the Home Watch next row, from the hub's video library).
-- arca domo: `ArcaDomo` (home-server client, polling, actions, the Home summary), `DomoActivity` (rooms, purifier
-  and vacuum screens, every state), `Icons` (the stroke icons in `app/res/drawable/house_*.xml`, tinted and cached).
+- arca domo: `ArcaDomo` (home-server client, polling, actions, the Home summary), `DomoActivity` (rooms, Cameras section, purifier
+  and vacuum screens, every state), `CameraShots` (camera pictures kept in memory, 960 px wide, refreshed every 10 s while visible) and `CameraActivity` (full-screen live camera), `Icons` (the stroke icons in `app/res/drawable/house_*.xml`, tinted and cached).
 
 ## Arca hub protocol (as used by the TV)
 
@@ -176,6 +176,7 @@ Troubleshooting:
   state and does not poll again for it. 502 means the device did not answer.
   For a purifier the TV compares what it asked for (`power`, `mode`, `fan_level`) with that state: a mismatch means the
   purifier ignored it (`ArcaDomo.IGNORED`, "<name> didn't take the change."). Mode and fan are off while it is off.
+- Cameras (`type` `camera`) stay out of the rooms list: `ArcaDomo.cameras()` keeps them apart. `GET /api/devices/{id}/snapshot.jpg` gives the picture (1920x1080 JPEG, `X-Snapshot-Age` in seconds) and `GET /api/devices/{id}/stream.m3u8` the live video (HLS, fMP4, the camera's video copied, usually H.265, AAC audio; relative `init.mp4` and `seg<N>.m4s`), played by ExoPlayer's `HlsMediaSource` with the same Bearer header. The first playlist request blocks until the first segment exists, up to 30 s on domo's side (about two key frame intervals plus the RTSP connection), so the player's read timeout stays above that (40 s; a first probe of a camera can add up to 20 s more). Segments are 2 s (`-hls_time 2`, cut on the camera's key frames, no `EXT-X-PROGRAM-DATE-TIME`); the `MediaItem` live configuration targets 3 s behind the playlist edge (2 to 8 s, speed 0.97 to 1.04), about 4 to 5 s behind real time; raise the target to 4 s if it stalls. Domo stops a stream 30 s after its last request and allows 4 at once (503), so `CameraActivity` releases the player on stop.
 - Actions move real devices in the house. Never call them while testing without the maintainer.
 
 ## Product rules (settled; do not reopen without the maintainer)

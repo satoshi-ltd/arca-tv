@@ -1,5 +1,7 @@
 package com.satoshilimited.tv;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -45,6 +47,7 @@ final class ArcaDomo {
 
         boolean purifier() { return "purifier".equals(type); }
         boolean vacuum() { return "vacuum".equals(type); }
+        boolean camera() { return "camera".equals(type); }
         boolean failed() { return !error.isEmpty(); }
 
         long age(long now) { return hasState ? Math.max(0, now - readAt) : Long.MAX_VALUE; }
@@ -66,7 +69,7 @@ final class ArcaDomo {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final ExecutorService actions = Executors.newSingleThreadExecutor();
     private final List<Listener> listeners = new ArrayList<>();
-    private volatile List<Device> devices = Collections.emptyList();
+    private volatile List<Device> devices = Collections.emptyList(), cameras = Collections.emptyList();
     private int status = LOADING, users;
     private long lastReading;
     private boolean polling;
@@ -77,6 +80,13 @@ final class ArcaDomo {
     int status() { return status; }
 
     List<Device> devices() { return devices; }
+
+    List<Device> cameras() { return cameras; }
+
+    Device camera(String id) {
+        for (Device d : cameras) if (d.id.equals(id)) return d;
+        return null;
+    }
 
     long lastReading() { return lastReading; }
 
@@ -112,7 +122,7 @@ final class ArcaDomo {
         polling = true;
         io.execute(() -> {
             int next;
-            List<Device> found = null;
+            List<Device> found = null, seen = null;
             try {
                 Response r = request("GET", "/api/devices", null, LIST_TIMEOUT);
                 if (r.code == 401) next = REJECTED;
@@ -120,9 +130,12 @@ final class ArcaDomo {
                     JSONArray list = new JSONArray(r.body);
                     long now = SystemClock.elapsedRealtime();
                     found = new ArrayList<>();
+                    seen = new ArrayList<>();
                     for (int i = 0; i < list.length(); i++) {
                         Device d = parse(list.optJSONObject(i), now);
-                        if (d != null && (d.purifier() || d.vacuum())) found.add(d);
+                        if (d == null) continue;
+                        if (d.purifier() || d.vacuum()) found.add(d);
+                        else if (d.camera()) seen.add(d);
                     }
                     sort(found);
                     next = READY;
@@ -132,12 +145,13 @@ final class ArcaDomo {
                 next = UNREACHABLE;
             }
             final int result = next;
-            final List<Device> fresh = found;
+            final List<Device> fresh = found, eyes = seen;
             main.post(() -> {
                 polling = false;
                 status = result;
                 if (fresh != null) {
                     devices = fresh;
+                    cameras = eyes;
                     lastReading = System.currentTimeMillis();
                 }
                 notifyListeners();
@@ -325,16 +339,70 @@ final class ArcaDomo {
         String body = "";
     }
 
-    private static Response request(String method, String path, String body, int timeoutMs) throws IOException {
+    static String base() {
         String base = Config.DOMO_URL.trim();
         while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
-        HttpURLConnection c = (HttpURLConnection) new URL(base + path).openConnection();
+        return base;
+    }
+
+    static String authorization() {
+        return Config.DOMO_TOKEN.isEmpty() ? null : "Bearer " + Config.DOMO_TOKEN;
+    }
+
+    static final class Shot {
+        Bitmap bitmap;
+        long ageMs;
+        int code;
+    }
+
+    static Shot snapshot(String id, int targetWidth) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(base() + "/api/devices/" + id + "/snapshot.jpg").openConnection();
+        try {
+            c.setConnectTimeout(LIST_TIMEOUT);
+            c.setReadTimeout(LIVE_TIMEOUT);
+            c.setInstanceFollowRedirects(false);
+            String auth = authorization();
+            if (auth != null) c.setRequestProperty("Authorization", auth);
+            Shot shot = new Shot();
+            shot.code = c.getResponseCode();
+            if (shot.code < 200 || shot.code >= 300) return shot;
+            try {
+                shot.ageMs = Math.round(Double.parseDouble(c.getHeaderField("X-Snapshot-Age")) * 1000);
+            } catch (Exception ignored) {
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (InputStream in = c.getInputStream()) {
+                byte[] buffer = new byte[16384];
+                int n, total = 0;
+                while ((n = in.read(buffer)) > 0 && total < 4_000_000) {
+                    out.write(buffer, 0, n);
+                    total += n;
+                }
+            }
+            byte[] data = out.toByteArray();
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(data, 0, data.length, bounds);
+            BitmapFactory.Options decode = new BitmapFactory.Options();
+            int sample = 1;
+            while (bounds.outWidth / (sample * 2) >= targetWidth) sample *= 2;
+            decode.inSampleSize = sample;
+            shot.bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, decode);
+            return shot;
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    private static Response request(String method, String path, String body, int timeoutMs) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(base() + path).openConnection();
         try {
             c.setRequestMethod(method);
             c.setConnectTimeout(timeoutMs);
             c.setReadTimeout(timeoutMs);
             c.setInstanceFollowRedirects(false);
-            if (!Config.DOMO_TOKEN.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + Config.DOMO_TOKEN);
+            String auth = authorization();
+            if (auth != null) c.setRequestProperty("Authorization", auth);
             if (body != null) {
                 byte[] data = body.getBytes(StandardCharsets.UTF_8);
                 c.setDoOutput(true);

@@ -1,9 +1,15 @@
 package com.satoshilimited.tv;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.KeyEvent;
@@ -12,6 +18,7 @@ import android.view.View;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -52,8 +59,10 @@ public class DomoActivity extends Activity {
         private static final int[] LEVEL_COLORS = {0xFFCFEAF2, 0xFFA8D8B6, 0xFFE3D98C, 0xFFE8B070, 0xFFE08A6A, 0xFFD0606A};
         private static final float LEFT = 112, TOP = 290, CARD_W = 544, CARD_H = 346, GAP = 32, PAD_X = 36;
         private static final float PANEL_L = 1008, PANEL_R = 1808, PILL_H = 60, FAN_ROW_H = 104;
-        private static final int COLS = 3, VISIBLE_ROWS = 2, ROOMS = 0, DEVICE = 1;
+        private static final float CAM_W = 400, CAM_H = 225, CAM_GAP = 32, CAM_LABEL = 380, CAM_TOP_GAP = 68, CAM_RADIUS = 28, CLIP_TOP = 236;
+        private static final int COLS = 3, CAM_COLS = 4, VISIBLE_ROWS = 2, ROOMS = 0, DEVICE = 1;
         private static final int R_POWER = 0, R_MODE = 1, R_FAN = 2, V_START = 0, V_STOP = 1, V_DOCK = 2;
+        private static final int[] CAMERA_FROM_ROOM = {0, 1, 3}, ROOM_FROM_CAMERA = {0, 1, 1, 2};
         private static final String[] POWER = {"On", "Off"}, MODES = {"Auto", "Sleep", "Favorite"}, MODE_KEYS = {"auto", "sleep", "favorite"};
         private static final String[] VACUUM_ROWS = {"Start", "Stop", "Dock"}, VACUUM_NOTES = {"Clean the whole house", "Stop where it is", "Go back and charge"};
         private static final String[] VACUUM_ACTIONS = {"start", "stop", "dock"};
@@ -68,6 +77,14 @@ public class DomoActivity extends Activity {
         private final Backdrop backdrop = new Backdrop();
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG), spin = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final RectF rect = new RectF(), tmp = new RectF();
+        private final Path clip = new Path();
+        private final RectF probe = new RectF();
+        private final List<ArcaDomo.Device> visible = new ArrayList<>();
+        private final Matrix shadeMatrix = new Matrix();
+        private final Paint shade = new Paint(), picture = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Shader foot = new LinearGradient(0, 0, 0, 1, 0x00000000, 0xB8000000, Shader.TileMode.CLAMP);
+        private final Shader veil = new LinearGradient(0, 0, 0, 1, 0xF20A0A0A, 0x000A0A0A, Shader.TileMode.CLAMP);
+        private float scroll;
         private int screen = ROOMS, focus, firstRow, row, col;
         private String deviceId = "";
         private String pending, pendingLabel = "", note = "", lastReadingLine = "";
@@ -79,7 +96,7 @@ public class DomoActivity extends Activity {
         private Header header;
         private Paint name32, status24, big112, unit24, level28, small24, pill24, pct40;
         private Paint huge220, unit32, level44, facts30, label30, sub24, value30, note26, pillOn, pillOff, fan36;
-        private Paint word160, sub30, value36, rowTitle32, rowNote26, title34, msg24, button28, skeletonTitle;
+        private Paint word160, sub30, value36, rowTitle32, rowNote26, title34, msg24, button28, skeletonTitle, camName26, camAge18;
 
         HouseView(DomoActivity a) {
             super(a);
@@ -93,6 +110,7 @@ public class DomoActivity extends Activity {
 
         void resume() {
             running = true;
+            scroll = targetScroll();
             showWash();
             domo.start(this);
             invalidate();
@@ -113,9 +131,9 @@ public class DomoActivity extends Activity {
             showWash();
             long last = domo.lastReading();
             lastReadingLine = last > 0 ? "Last reading at " + Ui.time(last).toLowerCase(Locale.US) + "." : "";
-            List<ArcaDomo.Device> list = domo.devices();
-            focus = Math.max(0, Math.min(focus, list.size() - 1));
+            focus = Math.max(0, Math.min(focus, total() - 1));
             if (screen == DEVICE && current() == null) screen = ROOMS;
+            loadShots();
             if (screen == DEVICE) clampDeviceFocus();
             invalidate();
         }
@@ -167,6 +185,9 @@ public class DomoActivity extends Activity {
             button28 = Ui.text(Ui.medium, 28 * k, INK);
             button28.setTextAlign(Paint.Align.CENTER);
             skeletonTitle = Ui.text(Ui.medium, 28 * k, INK);
+            camName26 = Ui.text(Ui.medium, 26 * k, INK);
+            camAge18 = Ui.numbers(Ui.regular, 18 * k, 0xC7FFFFFF);
+            camAge18.setTextAlign(Paint.Align.RIGHT);
         }
 
         @Override protected void onDraw(Canvas c) {
@@ -182,12 +203,38 @@ public class DomoActivity extends Activity {
             } else {
                 drawRooms(c, tick);
             }
-            if (running) postInvalidateDelayed(pending != null ? 16 : 50);
+            if (running) postInvalidateDelayed(pending != null || screen == ROOMS && Math.abs(targetScroll() - scroll) > 0.5f ? 16 : 50);
         }
 
         private boolean showsMessage() {
             int s = domo.status();
-            return s == ArcaDomo.UNREACHABLE || s == ArcaDomo.REJECTED || s == ArcaDomo.READY && domo.devices().isEmpty();
+            return s == ArcaDomo.UNREACHABLE || s == ArcaDomo.REJECTED || s == ArcaDomo.READY && total() == 0;
+        }
+
+        private int total() {
+            return domo.devices().size() + domo.cameras().size();
+        }
+
+        private float titleTop() {
+            return TOP + (domo.devices().size() + COLS - 1) / COLS * (CARD_H + GAP);
+        }
+
+        private float targetScroll() {
+            int rooms = domo.devices().size();
+            if (focus < rooms) return firstRow * (CARD_H + GAP);
+            int camRow = (focus - rooms) / CAM_COLS;
+            return titleTop() - CAM_LABEL + Math.max(0, camRow - 1) * (CAM_H + CAM_GAP);
+        }
+
+        private void loadShots() {
+            if (!running || screen != ROOMS) return;
+            List<ArcaDomo.Device> eyes = domo.cameras();
+            visible.clear();
+            for (int i = 0; i < eyes.size(); i++) {
+                cameraBox(i, probe);
+                if (probe.bottom > CLIP_TOP * k && probe.top < h) visible.add(eyes.get(i));
+            }
+            if (!visible.isEmpty()) CameraShots.get().refresh(visible, this::invalidate);
         }
 
         private void drawRooms(Canvas c, long tick) {
@@ -208,20 +255,105 @@ public class DomoActivity extends Activity {
                 }
                 return;
             }
-            if (list.isEmpty()) {
+            List<ArcaDomo.Device> eyes = domo.cameras();
+            if (list.isEmpty() && eyes.isEmpty()) {
                 drawMessage(c, R.drawable.icon_house, "No rooms yet", null, "The home server has no purifier", "or vacuum to show.", false);
                 return;
             }
-            for (int i = firstRow * COLS; i < Math.min(list.size(), (firstRow + VISIBLE_ROWS) * COLS); i++) {
-                cardBox(i, firstRow, rect);
+            float target = targetScroll();
+            if (Math.abs(target - scroll) < 0.5f) scroll = target;
+            else scroll += (target - scroll) * 0.3f;
+            loadShots();
+            c.save();
+            c.clipRect(0, CLIP_TOP * k, w, h);
+            for (int i = 0; i < list.size(); i++) {
+                cardBox(i, 0, rect);
+                if (rect.bottom < CLIP_TOP * k || rect.top > h) continue;
                 if (i == focus) focusRing.at(i);
                 drawCard(c, list.get(i), rect, i == focus, tick);
+            }
+            if (!eyes.isEmpty()) drawCameras(c, eyes, list.size(), tick);
+            if (scroll > 0) {
+                shade.setShader(veil);
+                shadeMatrix.setScale(1, 90 * k);
+                shadeMatrix.postTranslate(0, CLIP_TOP * k);
+                veil.setLocalMatrix(shadeMatrix);
+                shade.setAlpha(Math.round(255 * Math.min(1f, scroll / 60f)));
+                c.drawRect(0, CLIP_TOP * k, w, (CLIP_TOP + 90) * k, shade);
+            }
+            c.restore();
+        }
+
+        private void cameraBox(int index, RectF out) {
+            int r = index / CAM_COLS, cc = index % CAM_COLS;
+            float x = LEFT + cc * (CAM_W + CAM_GAP), y = titleTop() + CAM_TOP_GAP + r * (CAM_H + CAM_GAP) - scroll;
+            out.set(x * k, y * k, (x + CAM_W) * k, (y + CAM_H) * k);
+        }
+
+        private void drawCameras(Canvas c, List<ArcaDomo.Device> eyes, int rooms, long tick) {
+            float labelY = (titleTop() - scroll + 22) * k;
+            if (labelY > CLIP_TOP * k) {
+                c.drawText("Cameras", LEFT * k, labelY + Ui.halfCap(name32), name32);
+            }
+            for (int i = 0; i < eyes.size(); i++) {
+                cameraBox(i, rect);
+                if (rect.bottom < CLIP_TOP * k || rect.top > h) continue;
+                boolean focused = rooms + i == focus;
+                if (focused) focusRing.at("camera" + i);
+                drawCamera(c, eyes.get(i), rect, focused, tick);
+            }
+        }
+
+        private void drawCamera(Canvas c, ArcaDomo.Device d, RectF r, boolean focused, long tick) {
+            CameraShots shots = CameraShots.get();
+            Bitmap bitmap = shots.bitmap(d.id);
+            long age = shots.age(d.id, tick);
+            boolean silent = d.failed() || shots.failed(d.id) || age > ArcaDomo.OLD_MS;
+            float radius = CAM_RADIUS * k;
+            if (bitmap == null) {
+                Glass.plate(c, r, radius, k, fill, stroke);
+            } else {
+                clip.rewind();
+                clip.addRoundRect(r, radius, radius, Path.Direction.CW);
+                c.save();
+                c.clipPath(clip);
+                picture.setAlpha(silent ? 115 : 255);
+                c.drawBitmap(bitmap, null, r, picture);
+                shade.setShader(foot);
+                shadeMatrix.setScale(r.width(), 84 * k);
+                shadeMatrix.postTranslate(r.left, r.bottom - 84 * k);
+                foot.setLocalMatrix(shadeMatrix);
+                shade.setAlpha(255);
+                c.drawRect(r.left, r.bottom - 84 * k, r.right, r.bottom, shade);
+                c.restore();
+                if (!focused) {
+                    stroke.setStrokeWidth(1.5f * k);
+                    stroke.setColor(Glass.EDGE);
+                    tmp.set(r.left + 0.75f * k, r.top + 0.75f * k, r.right - 0.75f * k, r.bottom - 0.75f * k);
+                    c.drawRoundRect(tmp, radius - 0.75f * k, radius - 0.75f * k, stroke);
+                }
+            }
+            if (focused) focusRing.ring(c, r, radius, "cameras", k, stroke);
+            boolean loading = bitmap == null && !silent;
+            String name = Ui.fit(d.name, camName26, r.width() - 40 * k - (loading ? camAge18.measureText("Loading") + 40 * k : 0));
+            c.drawText(name, r.left + 20 * k, r.bottom - 14 * k - 2 * k, camName26);
+            if (loading) c.drawText("Loading", r.right - 20 * k, r.bottom - 16 * k, camAge18);
+            if (silent) {
+                float bw = pill24.measureText("No response") * 0.75f + (14 + 20 + 8 + 14) * k;
+                tmp.set(r.right - 14 * k - bw, r.top + 12 * k, r.right - 14 * k, r.top + 48 * k);
+                fill.setColor(0x8C000000);
+                c.drawRoundRect(tmp, 18 * k, 18 * k, fill);
+                Icons.draw(getContext(), c, R.drawable.icon_offline, tmp.left + 24 * k, tmp.centerY(), 20 * k, INK);
+                c.save();
+                c.scale(0.75f, 0.75f, tmp.left + 42 * k, tmp.centerY());
+                c.drawText("No response", tmp.left + 42 * k, tmp.centerY() + Ui.halfCap(pill24), pill24);
+                c.restore();
             }
         }
 
         private void cardBox(int index, int first, RectF out) {
             int r = index / COLS - first, cc = index % COLS;
-            float x = LEFT + cc * (CARD_W + GAP), y = TOP + r * (CARD_H + GAP);
+            float x = LEFT + cc * (CARD_W + GAP), y = TOP + r * (CARD_H + GAP) - (first == 0 ? scroll : 0);
             out.set(x * k, y * k, (x + CARD_W) * k, (y + CARD_H) * k);
         }
 
@@ -650,19 +782,15 @@ public class DomoActivity extends Activity {
             focusRing.pressed(dx, dy);
             if (screen == ROOMS) {
                 if (showsMessage()) return;
-                int n = domo.devices().size();
-                if (n == 0) return;
-                int next = focus + dx + dy * COLS;
-                if (dx != 0 && next / COLS != focus / COLS) return;
+                int rooms = domo.devices().size(), cams = domo.cameras().size();
+                int next = focus < rooms ? roomNext(dx, dy, rooms, cams) : cameraNext(dx, dy, rooms, cams);
                 if (next < 0) return;
-                if (next >= n) {
-                    if (dy > 0 && focus / COLS < (n - 1) / COLS) next = n - 1;
-                    else return;
-                }
                 focus = next;
-                int r = focus / COLS;
-                if (r < firstRow) firstRow = r;
-                else if (r >= firstRow + VISIBLE_ROWS) firstRow = r - VISIBLE_ROWS + 1;
+                if (focus < rooms) {
+                    int r = focus / COLS;
+                    if (r < firstRow) firstRow = r;
+                    else if (r >= firstRow + VISIBLE_ROWS) firstRow = r - VISIBLE_ROWS + 1;
+                }
                 invalidate();
                 return;
             }
@@ -690,6 +818,38 @@ public class DomoActivity extends Activity {
             invalidate();
         }
 
+        private int roomNext(int dx, int dy, int rooms, int cams) {
+            int next = focus + dx + dy * COLS;
+            if (dx != 0 && next / COLS != focus / COLS) return -1;
+            if (next < 0) return -1;
+            if (next < rooms) return next;
+            if (dy <= 0) return -1;
+            if (focus / COLS < (rooms - 1) / COLS) return rooms - 1;
+            return cams > 0 ? rooms + Math.min(cams - 1, CAMERA_FROM_ROOM[focus % COLS]) : -1;
+        }
+
+        private int cameraNext(int dx, int dy, int rooms, int cams) {
+            int index = focus - rooms, r = index / CAM_COLS, cc = index % CAM_COLS;
+            if (dx != 0) {
+                int next = r * CAM_COLS + cc + dx;
+                return cc + dx < 0 || cc + dx >= CAM_COLS || next >= cams ? -1 : rooms + next;
+            }
+            if (dy < 0) {
+                if (r > 0) return rooms + index - CAM_COLS;
+                return rooms == 0 ? -1 : Math.min(rooms - 1, (rooms - 1) / COLS * COLS + ROOM_FROM_CAMERA[cc]);
+            }
+            int next = index + CAM_COLS;
+            if (next < cams) return rooms + next;
+            return (r + 1) * CAM_COLS < cams ? rooms + cams - 1 : -1;
+        }
+
+        private void openCamera(int index) {
+            List<ArcaDomo.Device> eyes = domo.cameras();
+            if (index < 0 || index >= eyes.size()) return;
+            Intent intent = new Intent(activity, CameraActivity.class).putExtra(CameraActivity.ID, eyes.get(index).id);
+            activity.startActivity(intent);
+        }
+
         private void press() {
             if (screen == ROOMS) {
                 if (domo.status() == ArcaDomo.UNREACHABLE) {
@@ -697,7 +857,11 @@ public class DomoActivity extends Activity {
                     return;
                 }
                 List<ArcaDomo.Device> list = domo.devices();
-                if (showsMessage() || focus >= list.size()) return;
+                if (showsMessage()) return;
+                if (focus >= list.size()) {
+                    openCamera(focus - list.size());
+                    return;
+                }
                 ArcaDomo.Device d = list.get(focus);
                 deviceId = d.id;
                 screen = DEVICE;
