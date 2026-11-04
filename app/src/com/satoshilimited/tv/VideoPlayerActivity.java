@@ -4,8 +4,10 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
@@ -16,6 +18,7 @@ import android.os.SystemClock;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
@@ -86,7 +89,7 @@ public class VideoPlayerActivity extends Activity {
 
     static final class Overlay extends View implements VideoPlayer.Listener {
         private final FocusRing focusRing = new FocusRing(this);
-        private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, DARK = 0xFF141414;
+        private static final int INK = 0xFFF2F2F2, MUTE = 0xB8FFFFFF, DARK = 0xFF141414, PLACEHOLDER = 0xFF2B2926;
         private static final int B_BACK = 0, B_PLAY = 1, B_FWD = 2, B_AUDIO = 3, B_SUBS = 4, B_BAR = 5;
         private static final long SAVE_MS = 10_000, HIDE_MS = 5000, UP_NEXT_SECONDS = 30, SEEK_MS = 10_000;
         private static final int PANEL_ROWS = 9;
@@ -98,7 +101,12 @@ public class VideoPlayerActivity extends Activity {
         private final SharedPreferences ui;
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG), pic = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final RectF rect = new RectF(), tmp = new RectF();
-        private Paint title, subtitle, time, metaText, metaBadge, clockBig, clockAm, chip, small, chipLabel, messagePaint, panelHead, panelRow, panelValue, upLabel, upTitle, upButton;
+        private Paint title, subtitle, time, metaText, metaBadge, clockBig, clockAm, chip, small, chipLabel, messagePaint, panelHead, panelRow, panelValue, upTitle, upButton, upCaption, upTag;
+        private TextPaint upOverviewPaint;
+        private StaticLayout upOverviewLayout;
+        private String upOverviewId = "";
+        private final Matrix upMatrix = new Matrix();
+        private final RectF chipBox = new RectF();
         private TextPaint cuePaint;
         private StaticLayout cueLayout;
         private List<Cue> bitmapCues = new ArrayList<>();
@@ -305,11 +313,16 @@ public class VideoPlayerActivity extends Activity {
             panelRow = Ui.text(Ui.medium, 28 * k, INK);
             panelValue = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
             panelValue.setTextAlign(Paint.Align.RIGHT);
-            upLabel = Ui.text(Ui.semibold, 20 * k, MUTE);
-            upLabel.setLetterSpacing(0.1f);
-            upTitle = Ui.text(Ui.medium, 28 * k, INK);
-            upButton = Ui.text(Ui.medium, 24 * k, INK);
-            upButton.setTextAlign(Paint.Align.CENTER);
+            upTitle = Ui.text(Ui.medium, Ui.HEADING * k, INK);
+            upTitle.setLetterSpacing(-0.016f);
+            upCaption = Ui.text(Ui.regular, Ui.LABEL * k, MUTE);
+            upButton = Ui.text(Ui.medium, Ui.LABEL * k, INK);
+            upTag = Ui.tagPaint(k);
+            upOverviewPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+            upOverviewPaint.setTypeface(Ui.regular);
+            upOverviewPaint.setTextSize(Ui.LABEL * k);
+            upOverviewPaint.setColor(MUTE);
+            upOverviewLayout = null;
             spinner.setStyle(Paint.Style.STROKE);
             spinner.setStrokeWidth(4 * k);
             spinner.setColor(MUTE);
@@ -804,9 +817,10 @@ public class VideoPlayerActivity extends Activity {
         }
 
         private void drawScrims(Canvas c, boolean controls) {
-            if (!controls) return;
             fill.setShader(scrim);
             c.drawRect(0, h - 460 * k, w, h, fill);
+            fill.setShader(null);
+            if (!controls) return;
             fill.setShader(topScrim);
             c.drawRect(0, 0, w, 380 * k, fill);
             fill.setShader(null);
@@ -943,32 +957,90 @@ public class VideoPlayerActivity extends Activity {
         private void drawUpNext(Canvas c, boolean controls) {
             VideoLibrary.Item next = library.next(item);
             if (next == null) return;
-            long left = Math.max(0, (player.duration() - player.position()) / 1000);
-            float bottom = controls ? 790 : 940;
-            tmp.set(1808 * k - 600 * k, (bottom - 196) * k, 1808 * k, bottom * k);
-            Glass.plate(c, tmp, 36 * k, k, fill, stroke);
-            float x = tmp.left + 30 * k, y = tmp.top + 26 * k;
-            upLabel.setColor(MUTE);
-            c.drawText("UP NEXT · IN " + left + " S", x, y + 20 * k, upLabel);
-            c.drawText(Ui.fit(next.title.isEmpty() ? "Episode " + next.episode : next.title, upTitle, tmp.width() - 60 * k), x, y + 66 * k, upTitle);
-            subtitle.setTextSize(Ui.CAPTION * k);
-            c.drawText("S" + next.season + " · E" + next.episode + (next.minutes() > 0 ? " · " + next.minutes() + " min" : ""), x, y + 100 * k, subtitle);
-            subtitle.setTextSize(Ui.LABEL * k);
-            float by = tmp.bottom - 22 * k - 52 * k;
-            for (int i = 0; i < 2; i++) {
-                float bx = x + i * 200 * k;
-                rect.set(bx, by, bx + 180 * k, by + 52 * k);
-                boolean focused = upFocused && upFocus == i;
-                if (i == 0) {
-                    fill.setColor(INK);
-                    c.drawRoundRect(rect, 26 * k, 26 * k, fill);
-                } else {
-                    Glass.plate(c, rect, 26 * k, k, fill, stroke);
-                }
-                upButton.setColor(i == 0 ? DARK : INK);
-                c.drawText(i == 0 ? "Play now" : "Cancel", rect.centerX(), rect.centerY() + Ui.halfCap(upButton), upButton);
-                if (focused) focusRing.ring(c, rect, 26 * k, "upnext", k, stroke);
+            long leftMs = Math.max(0, player.duration() - player.position());
+            float countdown = Math.min(1f, 1f - leftMs / (UP_NEXT_SECONDS * 1000f));
+            VideoLibrary.Item show = library.showOf(next);
+            float inset = Glass.PLATE_INSET * k, inner = 560 * k, stillH = 315 * k, button = 56 * k;
+            StaticLayout overview = controls ? null : upOverview(next, inner);
+            float textH = 20 * k + 30 * k + 44 * k + (overview != null ? 12 * k + overview.getHeight() : 0);
+            float height = inset + stillH + textH + 22 * k + button + inset;
+            float bottom = (controls ? 790 : 968) * k;
+            tmp.set(1808 * k - inner - 2 * inset, bottom - height, 1808 * k, bottom);
+            Glass.plate(c, tmp, k, fill, stroke);
+            rect.set(tmp.left + inset, tmp.top + inset, tmp.left + inset + inner, tmp.top + inset + stillH);
+            String key = !next.still.isEmpty() ? next.still : !next.backdrop.isEmpty() ? next.backdrop : show != null ? show.backdrop : "";
+            drawUpArt(c, key, rect, 28 * k);
+            Ui.tag(c, fill, upTag, chipBox, "Up next · " + leftMs / 1000 + " s", rect.left + 12 * k, rect.top + 16 * k, k);
+            float x = rect.left, y = rect.bottom + 20 * k;
+            String line = (show != null ? show.title + " · " : "") + "S" + next.season + " · E" + next.episode + (next.minutes() > 0 ? " · " + next.minutes() + " min" : "");
+            c.drawText(Ui.fit(line, upCaption, inner), x, y + 24 * k, upCaption);
+            c.drawText(Ui.fit(next.title.isEmpty() ? "Episode " + next.episode : next.title, upTitle, inner), x, y + 30 * k + 38 * k, upTitle);
+            if (overview != null) {
+                c.save();
+                c.translate(x, y + 30 * k + 44 * k + 12 * k);
+                overview.draw(c);
+                c.restore();
             }
+            float bx = x, by = tmp.bottom - inset - button;
+            for (int i = 0; i < 2; i++) {
+                String label = i == 0 ? "Play now" : "Cancel";
+                boolean focused = upFocused && upFocus == i;
+                rect.set(bx, by, bx + 28 * k + upButton.measureText(label) + 28 * k, by + button);
+                if (focused) {
+                    fill.setColor(INK);
+                    c.drawRoundRect(rect, button / 2, button / 2, fill);
+                } else {
+                    Glass.plate(c, rect, button / 2, k, fill, stroke);
+                }
+                if (i == 0) {
+                    c.save();
+                    c.clipRect(rect.left, rect.top, rect.left + rect.width() * countdown, rect.bottom);
+                    fill.setColor(focused ? Glass.GAP : Glass.FOCUS);
+                    c.drawRoundRect(rect, button / 2, button / 2, fill);
+                    c.restore();
+                }
+                upButton.setColor(focused ? DARK : INK);
+                c.drawText(label, rect.left + 28 * k, rect.centerY() + Ui.halfCap(upButton), upButton);
+                if (focused) focusRing.ring(c, rect, button / 2, "upnext", k, stroke);
+                bx = rect.right + 14 * k;
+            }
+        }
+
+        private StaticLayout upOverview(VideoLibrary.Item next, float width) {
+            if (next.overview.isEmpty()) return null;
+            if (upOverviewLayout == null || !next.id.equals(upOverviewId)) {
+                upOverviewId = next.id;
+                upOverviewLayout = StaticLayout.Builder.obtain(next.overview, 0, next.overview.length(), upOverviewPaint, (int) width)
+                        .setMaxLines(2).setEllipsize(TextUtils.TruncateAt.END).build();
+            }
+            return upOverviewLayout;
+        }
+
+        private void drawUpArt(Canvas c, String key, RectF box, float radius) {
+            Bitmap b = VideoArt.get(getContext(), key, VideoArt.LARGE, this::postInvalidate);
+            float alpha = b == null ? 0f : VideoArt.fade(key, VideoArt.LARGE);
+            if (alpha < 1f) {
+                Bitmap small = VideoArt.peek(key, VideoArt.SMALL);
+                if (small != null) drawUpImage(c, small, box, radius, 1f);
+                else {
+                    fill.setColor(VideoArt.tint(key, PLACEHOLDER));
+                    c.drawRoundRect(box, radius, radius, fill);
+                }
+            }
+            if (b != null) drawUpImage(c, b, box, radius, alpha);
+        }
+
+        private void drawUpImage(Canvas c, Bitmap b, RectF box, float radius, float alpha) {
+            BitmapShader shader = new BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+            float scale = Math.max(box.width() / b.getWidth(), box.height() / b.getHeight());
+            upMatrix.setScale(scale, scale);
+            upMatrix.postTranslate(box.centerX() - b.getWidth() * scale / 2, box.centerY() - b.getHeight() * scale / 2);
+            shader.setLocalMatrix(upMatrix);
+            pic.setShader(shader);
+            pic.setAlpha(Math.round(255 * alpha));
+            c.drawRoundRect(box, radius, radius, pic);
+            pic.setAlpha(255);
+            pic.setShader(null);
         }
 
         private void drawPanel(Canvas c) {

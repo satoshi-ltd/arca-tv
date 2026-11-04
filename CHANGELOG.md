@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+- Movies: the *Up next* card at the end of an episode shows the next episode's picture, the show, season and episode, the title and two lines of its summary; *Play now* fills up as the last 30 seconds run out.
+
 ## 1.3.0
 
 - arca domo: the cameras of your home server show in *Devices*, under the purifiers and the vacuum, as a Cameras section of 16:9 cards with the camera's picture and name. Pictures refresh every 10 seconds while they are on screen; a camera that stops answering dims with *No response*. **OK** opens a camera full screen with its live video (HLS from the home server, up to 4 cameras at once), **Left/Right** change camera and **Back** returns to the same card.
