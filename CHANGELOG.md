@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2
+
+- Player: the focus ring jumps straight between the progress bar and the buttons instead of sliding, and only *Up next* shows a ring while it has the focus.
+
 ## 1.3.1
 
 - Movies: the *Up next* card at the end of an episode shows the next episode's picture, the show, season and episode, the title and two lines of its summary; *Play now* fills up as the last 30 seconds run out.

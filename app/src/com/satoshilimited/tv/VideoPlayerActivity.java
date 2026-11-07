@@ -107,6 +107,7 @@ public class VideoPlayerActivity extends Activity {
         private String upOverviewId = "";
         private final Matrix upMatrix = new Matrix();
         private final RectF chipBox = new RectF();
+        private boolean upNow;
         private TextPaint cuePaint;
         private StaticLayout cueLayout;
         private List<Cue> bitmapCues = new ArrayList<>();
@@ -806,12 +807,13 @@ public class VideoPlayerActivity extends Activity {
                 drawFailure(c);
                 return;
             }
-            if (controls || upVisible()) drawScrims(c, controls);
+            upNow = upVisible();
+            if (controls || upNow) drawScrims(c, controls);
             if (controls && player != null) {
                 drawTitle(c);
                 drawControls(c);
             }
-            if (upVisible() && player != null) drawUpNext(c, controls);
+            if (upNow && player != null) drawUpNext(c, controls);
             if (scrubbing) postInvalidateDelayed(60);
             if (panel >= 0) drawPanel(c);
         }
@@ -880,6 +882,10 @@ public class VideoPlayerActivity extends Activity {
             if (focused) focusRing.oval(c, rect, "controls", k, stroke);
         }
 
+        private boolean focused(int button) {
+            return focus == button && !(upFocused && upNow);
+        }
+
         private void drawControls(Canvas c) {
             long position = scrubbing ? scrubTarget : player.position(), duration = player.duration();
             float left = 112 * k, right = 1808 * k, barY = 876 * k;
@@ -891,27 +897,27 @@ public class VideoPlayerActivity extends Activity {
             tmp.set(left, barY, left + (right - left) * fraction, barY + 8 * k);
             c.drawRoundRect(tmp, 4 * k, 4 * k, fill);
             if (scrubbing) drawScrub(c, left, right, barY, duration, position);
-            float knob = focus == B_BAR ? 13 : 9;
+            float knob = focused(B_BAR) ? 13 : 9;
             c.drawCircle(left + (right - left) * fraction, barY + 4 * k, knob * k, fill);
-            if (focus == B_BAR) {
+            if (focused(B_BAR)) {
                 rect.set(left + (right - left) * fraction - 13 * k, barY + 4 * k - 13 * k, left + (right - left) * fraction + 13 * k, barY + 4 * k + 13 * k);
-                focusRing.oval(c, rect, "controls", k, stroke);
+                focusRing.oval(c, rect, "bar", k, stroke);
             }
             time.setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.clockTime(position / 1000), left, 930 * k, time);
             time.setTextAlign(Paint.Align.RIGHT);
             c.drawText(duration > 0 ? "−" + Ui.clockTime((duration - position) / 1000) : "", right, 930 * k, time);
             float cy = 1000 * k;
-            circle(c, 152 * k, cy, 40 * k, false, focus == B_BACK);
+            circle(c, 152 * k, cy, 40 * k, false, focused(B_BACK));
             Icons.draw(getContext(), c, R.drawable.icon_rewind, 152 * k, cy, 40 * k, INK);
-            circle(c, 280 * k, cy, 52 * k, true, focus == B_PLAY);
+            circle(c, 280 * k, cy, 52 * k, true, focused(B_PLAY));
             Icons.draw(getContext(), c, player.playing() ? R.drawable.icon_pause : R.drawable.icon_play, 280 * k, cy, 44 * k, DARK);
-            circle(c, 408 * k, cy, 40 * k, false, focus == B_FWD);
+            circle(c, 408 * k, cy, 40 * k, false, focused(B_FWD));
             Icons.draw(getContext(), c, R.drawable.icon_forward, 408 * k, cy, 40 * k, INK);
             String audio = selectedLabel(audioTracks, "Audio"), subs = player.subtitlesOn() ? selectedLabel(textTracks, "Subtitles") : "Off";
             float x = right;
-            if (hasSubtitles()) x = chip(c, x, cy, R.drawable.icon_subtitles, subs, focus == B_SUBS) - 16 * k;
-            if (hasAudioChoice()) chip(c, x, cy, R.drawable.icon_sound, audio, focus == B_AUDIO);
+            if (hasSubtitles()) x = chip(c, x, cy, R.drawable.icon_subtitles, subs, focused(B_SUBS)) - 16 * k;
+            if (hasAudioChoice()) chip(c, x, cy, R.drawable.icon_sound, audio, focused(B_AUDIO));
         }
 
         private void drawScrub(Canvas c, float left, float right, float barY, long duration, long position) {
