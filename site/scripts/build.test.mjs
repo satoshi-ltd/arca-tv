@@ -7,6 +7,7 @@ import path from "node:path";
 import { build, render, publicUrl, localReferences, questions, robots, sitemap, SCREENS } from "./build.mjs";
 import { STEPS, duration, heroCss } from "./hero.mjs";
 import vm from "node:vm";
+import { createHash } from "node:crypto";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -29,12 +30,13 @@ test("build writes the page, styles, script, assets, screens and headers", async
   const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
   assert.equal(ld[0]["@type"], "SoftwareApplication");
   assert.equal(ld[0].softwareVersion, /versionName="([^"]+)"/.exec(await readFile(path.join(repo, "app/AndroidManifest.xml"), "utf8"))[1]);
+  assert.ok(html.includes(`<span class="dot"></span> v${ld[0].softwareVersion}</span>`));
   assert.equal(ld[1]["@type"], "FAQPage");
   assert.ok(ld[1].mainEntity.length >= 5);
   assert.match(await readFile(path.join(dist, "robots.txt"), "utf8"), /Sitemap: https:\/\/tv\.example\.com\/sitemap\.xml/);
   assert.match(await readFile(path.join(dist, "sitemap.xml"), "utf8"), /<loc>https:\/\/tv\.example\.com\/<\/loc>/);
   assert.deepEqual((await readdir(path.join(dist, "screens"))).sort(), [...SCREENS].sort());
-  for (const file of ["styles.css", "hero.css", "demos.css", "site.js", "assets/og-image.jpg", "assets/apple-touch-icon.png", "_headers", "assets/Geist.ttf", "assets/OFL-Geist.txt", "assets/mark.svg"])
+  for (const file of ["styles.css", "hero.css", "demos.css", "site.js", "assets/og-image.jpg", "assets/apple-touch-icon.png", "_headers", "assets/Geist.ttf", "assets/OFL-Geist.txt", "assets/manrope.woff2", "assets/OFL-Manrope.txt", "assets/geist-mono.woff2", "assets/OFL-GeistMono.txt", "assets/mark.svg"])
     await readFile(path.join(dist, file));
   const headers = await readFile(path.join(dist, "_headers"), "utf8");
   assert.match(headers, /script-src 'self'; style-src 'self'/);
@@ -102,6 +104,17 @@ test("the hub instructions use the current library setup names", async () => {
   assert.doesNotMatch(html, /Enable gallery|Enable music library/);
   assert.match(html, /Set up as library… → Photos/);
   assert.match(html, /Set up as library… → Audio/);
+});
+
+test("the page, the readme and the license file state the GNU AGPL-3.0", async () => {
+  const html = await readFile(path.join(repo, "site/index.html"), "utf8");
+  const readme = await readFile(path.join(repo, "README.md"), "utf8");
+  const license = (await readFile(path.join(repo, "LICENSE"), "utf8")).replace(/\r\n/g, "\n");
+  assert.equal(createHash("sha256").update(license).digest("hex"), "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0");
+  assert.match(html, /blob\/main\/LICENSE">GNU AGPL-3\.0 licence</);
+  assert.match(html, /By Satoshi Ltd\. · free and open source · GNU AGPL-3\.0 ·/);
+  assert.match(readme, /\[GNU Affero General Public License, version 3\]\(LICENSE\) only/);
+  for (const text of [html, readme]) assert.doesNotMatch(text, /PolyForm|non-commercial|personal use/i);
 });
 
 test("only the hero images load eagerly, including in the standalone demos", async () => {
@@ -180,4 +193,60 @@ test("robots points at the sitemap only with a site url", () => {
   assert.equal(robots(), "User-agent: *\nAllow: /\n");
   assert.match(robots("https://tv.example.com"), /Sitemap: https:\/\/tv\.example\.com\/sitemap\.xml/);
   assert.match(sitemap("https://tv.example.com/"), /<loc>https:\/\/tv\.example\.com\/<\/loc>/);
+});
+
+test("the masthead shows the release only when the app has a version", () => {
+  assert.equal(render("<i>{{RELEASE}}</i>", { version: "1.2.3" }), '<i><span class="eyebrow release"><span class="dot"></span> v1.2.3</span></i>');
+  assert.equal(render("<i>{{RELEASE}}</i>"), "<i></i>");
+});
+
+test("the comparison is a real table that claims only what the app and the faq support", async () => {
+  const html = await readFile(path.join(repo, "site/index.html"), "utf8");
+  const css = await readFile(path.join(repo, "site/styles.css"), "utf8");
+  const table = /<table class="compare">[\s\S]*?<\/table>/.exec(html)[0];
+  assert.equal(table.match(/<tr>/g).length, 6);
+  for (const [row] of table.matchAll(/<tr>[\s\S]*?<\/tr>/g)) assert.equal(row.match(/<t[hd]/g).length, 3);
+  assert.match(css, /\.compare \{[^}]*table-layout: fixed/);
+  assert.match(css, /\.compare th, \.compare td \{[^}]*overflow-wrap: anywhere/);
+  assert.doesNotMatch(html, /One press|any time|nobody learning|services you rent|never from a company/i);
+  assert.match(html, /Trailers play through YouTube’s player\./);
+  assert.match(css, /\.tab\[aria-selected="true"\]:focus-visible \{ box-shadow: 0 0 0 2px/);
+  assert.ok(css.lastIndexOf('.tab[aria-selected="true"]:focus-visible') > css.lastIndexOf('.tab[aria-selected="true"] {'));
+});
+
+test("each install card opens its own steps and never offers a download that does not exist", async () => {
+  const html = await readFile(path.join(repo, "site/index.html"), "utf8");
+  const doors = [...html.matchAll(/<div class="door">[\s\S]*?<a class="setup-link" href="#([a-z-]+)">/g)].map((match) => match[1]);
+  assert.deepEqual(doors, ["panel-ai", "panel-manual"]);
+  for (const id of doors) assert.match(html, new RegExp(`id="${id}" role="tabpanel"`));
+  assert.match(html, /<div class="tabs" role="tablist"/);
+  assert.doesNotMatch(html, /Download the APK|href="#top">(?!<)/);
+  const focused = [];
+  const tabs = ["ai", "manual"].map((name) => ({ id: `tab-${name}`, tabIndex: 0, attributes: { "aria-controls": `panel-${name}`, "aria-selected": String(name === "ai") }, getAttribute(key) { return this.attributes[key]; }, setAttribute(key, value) { this.attributes[key] = value; }, focus() { focused.push(this.id); } }));
+  const panels = ["ai", "manual"].map((name) => ({ id: `panel-${name}`, hidden: name !== "ai", getAttribute: () => `tab-${name}` }));
+  let click;
+  const scrolls = [];
+  vm.runInNewContext(await readFile(path.join(repo, "site/site.js"), "utf8"), {
+    window: {},
+    document: {
+      addEventListener(type, handler) { if (type === "click") click = handler; },
+      querySelectorAll: (selector) => (selector === '[role="tab"]' ? tabs : []),
+      querySelector: (selector) => (selector === ".tabs" ? { scrollIntoView(options) { scrolls.push(options); } } : null),
+      getElementById: (id) => [...tabs, ...panels].find((node) => node.id === id) || null,
+    },
+  });
+  const press = async (href, keys = {}) => {
+    let prevented = false;
+    const link = { getAttribute: () => href };
+    await click({ ...keys, preventDefault() { prevented = true; }, target: { closest: (selector) => (selector === 'a[href^="#panel-"]' ? link : null) } });
+    return prevented;
+  };
+  assert.equal(await press("#panel-manual", { metaKey: true }), false);
+  assert.equal(await press("#panel-missing"), false);
+  assert.deepEqual(panels.map((panel) => panel.hidden), [false, true]);
+  assert.equal(await press("#panel-manual"), true);
+  assert.equal(JSON.stringify(scrolls), '[{"block":"start"}]');
+  assert.deepEqual(focused, ["tab-manual"]);
+  assert.deepEqual(panels.map((panel) => panel.hidden), [true, false]);
+  assert.deepEqual(tabs.map((tab) => tab.attributes["aria-selected"]), ["false", "true"]);
 });

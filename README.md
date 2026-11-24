@@ -234,8 +234,8 @@ npm --prefix site run build
 python3 -m http.server --directory site/dist 4179
 ```
 
-The build copies the screenshots from `docs/screens/` and the font from `app/assets/fonts/` into `site/dist`, and fails if the page names a file that is not there. `.github/workflows/publish-site.yml` tests, builds and uploads it to Cloudflare Pages with Wrangler, the same direct-upload pipeline as arca. It needs the secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` and the variables `CLOUDFLARE_PAGES_PROJECT_NAME` and `SITE_URL`.
+The build copies the screenshots from `docs/screens/` and the Geist font from `app/assets/fonts/` into `site/dist`, and fails if the page names a file that is not there. `.github/workflows/publish-site.yml` tests, builds and uploads it to Cloudflare Pages with Wrangler, the same direct-upload pipeline as arca. It needs the secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` and the variables `CLOUDFLARE_PAGES_PROJECT_NAME` and `SITE_URL`.
 
 ## Credits and license
 
-Free for personal and non-commercial use under the [PolyForm Strict License 1.0.0](LICENSE), the same license as arca. Copyright Satoshi Ltd. App logos are trademarks of their owners and are shown only to identify their apps.
+Copyright © Satoshi Ltd. (https://www.satoshi-ltd.com). arca TV is free and open source software under the [GNU Affero General Public License, version 3](LICENSE) only, the same license as arca: you may use it for any purpose, study it, change it and share it, and anyone who shares a changed version must offer its source under the same license. The libraries it bundles (AndroidX, Media3, Guava) are Apache-2.0 and the Geist font is OFL-1.1, as are Manrope and Geist Mono on the website. App logos are trademarks of their owners and are shown only to identify their apps.

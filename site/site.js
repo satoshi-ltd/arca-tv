@@ -20,6 +20,14 @@
     }
     const tab = event.target.closest('[role="tab"]');
     if (tab) return select(tab, false);
+    const door = event.target.closest('a[href^="#panel-"]');
+    const panel = door && document.getElementById(door.getAttribute('href').slice(1));
+    if (panel && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.button) {
+      event.preventDefault();
+      select(document.getElementById(panel.getAttribute('aria-labelledby')), true);
+      document.querySelector('.tabs').scrollIntoView({ block: 'start' });
+      return;
+    }
     const button = event.target.closest('[data-copy]');
     if (!button) return;
     const label = button.querySelector('span');

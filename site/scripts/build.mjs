@@ -119,6 +119,7 @@ export function render(template, config = {}) {
     CANONICAL: origin ? `<link rel="canonical" href="${escape(origin)}/">` : "",
     SOCIAL: social,
     STRUCTURED_DATA: structured,
+    RELEASE: config.version ? `<span class="eyebrow release"><span class="dot"></span> v${escape(config.version)}</span>` : "",
   };
   return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, key) => {
     if (!(key in tokens)) throw new Error(`Unknown template token: ${key}`);

@@ -83,8 +83,12 @@ Troubleshooting:
 - The website deploys from `.github/workflows/publish-site.yml` on every push to `main`, or by manual
   dispatch. It needs the secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (Pages
   Edit) and the variables `CLOUDFLARE_PAGES_PROJECT_NAME` and `SITE_URL`; a missing one stops the run.
-- The website sells arca TV with the arca ecosystem: hero, With arca, Movies, Photos, Music, Home without a hub,
-  Install, FAQ. Every screen on it is an animated HTML copy of a Design board, never invented: the hero (`hero.mjs`)
+- The website sells arca TV with the arca ecosystem: hero, four facts, With arca, Movies, Photos, Music, Home without a
+  hub, the comparison with the stock home, Install, FAQ and a closing call. It continues arca's site (Manrope headings,
+  Geist Mono eyebrows, flat cards) on a neutral palette with no green; Geist stays inside the TV screens. It offers only
+  install paths that exist and links only to pages that exist, and claims nothing about the app or about Google TV
+  that the app, the README or the FAQ contradicts.
+  Every screen on it is an animated HTML copy of a Design board, never invented: the hero (`hero.mjs`)
   and one demo per app in `site/demos/<name>.html` and `.css` (scoped under `.demo-<name>`, pure CSS keyframes,
   paused off screen and by its Pause button, a static frame under reduced motion), pasted into `index.html`.
   Watch next cards use the hub's real captions. The build writes the social meta, JSON-LD (app and FAQ), robots.txt
